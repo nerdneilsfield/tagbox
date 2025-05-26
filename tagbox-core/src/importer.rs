@@ -3,7 +3,7 @@ use crate::errors::{Result, TagboxError};
 use crate::metainfo::MetaInfoExtractor;
 use crate::pathgen::PathGenerator;
 use crate::types::{FileEntry, ImportMetadata};
-use crate::utils::{calculate_file_hash, ensure_dir_exists, generate_uuid, current_time, safe_copy_file};
+use crate::utils::{calculate_file_hash, ensure_dir_exists, generate_uuid, current_time, safe_copy_file, require_field};
 use std::path::{Path, PathBuf};
 use tracing::{info, debug, warn};
 use sqlx::SqlitePool;
@@ -145,12 +145,12 @@ impl Importer {
                 year: db_row.year.map(|y| y as i32),
                 publisher: db_row.publisher,
                 source: db_row.source_url,
-                path: db_row.relative_path.map(PathBuf::from).unwrap_or_default(),
+                path: PathBuf::from(require_field(db_row.relative_path, "files.relative_path")?),
                 original_path: None,
-                original_filename: db_row.filename.unwrap_or_default(),
-                hash: db_row.initial_hash.unwrap_or_default(),
+                original_filename: require_field(db_row.filename, "files.filename")?,
+                hash: require_field(db_row.initial_hash, "files.initial_hash")?,
                 current_hash: db_row.current_hash,
-                category1: db_row.category_id.unwrap_or_default(),
+                category1: require_field(db_row.category_id, "files.category_id")?,
                 category2: None,
                 category3: None,
                 tags,

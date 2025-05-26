@@ -1,6 +1,6 @@
 use crate::errors::{Result, TagboxError};
 use crate::types::Author;
-use crate::utils::{current_time, generate_uuid};
+use crate::utils::{current_time, generate_uuid, require_field};
 use sqlx::SqlitePool;
 use std::collections::HashMap;
 use tracing::{debug, info};
@@ -61,7 +61,7 @@ impl AuthorManager {
         let metadata = self.get_author_metadata(author_id_param).await?;
         
         Ok(Author {
-            id: author_row.id.unwrap_or_default(),
+            id: require_field(author_row.id, "authors.id")?,
             name: author_row.name,
             aliases: alias_names, // Use the fetched alias names
             metadata: Some(metadata),
@@ -82,7 +82,7 @@ impl AuthorManager {
         .map_err(|e| TagboxError::Database(e))?;
         
         if let Some(author) = existing {
-            return self.get_author(&author.id.unwrap_or_default()).await;
+            return self.get_author(&require_field(author.id, "authors.id")?).await;
         }
         
         // 创建新作者

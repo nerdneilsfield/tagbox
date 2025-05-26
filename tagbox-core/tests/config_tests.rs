@@ -27,6 +27,9 @@ async fn test_load_and_validate_config() {
         path = "./db.sqlite"
         journal_mode = "WAL"
         sync_mode = "NORMAL"
+
+        [hash]
+        algorithm = "blake2b"
     "#;
     fs::write(&config_path, toml).unwrap();
 
