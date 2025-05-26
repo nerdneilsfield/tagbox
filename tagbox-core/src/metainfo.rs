@@ -118,8 +118,8 @@ impl MetaInfoExtractor {
         if parts.len() == 2 {
             let author = parts[1].trim();
             let year_part = parts[0].trim();
-            if year_part.ends_with(')') {
-                let year_str = year_part[..year_part.len() - 1].trim();
+            if let Some(year_str) = year_part.strip_suffix(')') {
+                let year_str = year_str.trim();
                 if let Ok(year) = year_str.parse::<i32>() {
                     return Some((author.to_string(), Some(year)));
                 }
@@ -134,10 +134,10 @@ impl MetaInfoExtractor {
         let json_path = self.get_metadata_json_path(file_path)?;
 
         if json_path.exists() {
-            let json_content = fs::read_to_string(&json_path).map_err(|e| TagboxError::Io(e))?;
+            let json_content = fs::read_to_string(&json_path).map_err(TagboxError::Io)?;
 
             let json_value: Value =
-                serde_json::from_str(&json_content).map_err(|e| TagboxError::Serialization(e))?;
+                serde_json::from_str(&json_content).map_err(TagboxError::Serialization)?;
 
             return self.parse_json_metadata(json_value);
         }

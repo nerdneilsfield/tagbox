@@ -1,5 +1,4 @@
 use std::fs;
-use std::path::Path;
 use tagbox_core::config::AppConfig;
 use tempfile::tempdir;
 

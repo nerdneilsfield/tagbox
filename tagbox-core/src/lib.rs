@@ -11,13 +11,16 @@ mod search;
 pub mod types;
 pub mod utils;
 
+// 导出各个管理器供外部使用
+pub use authors::AuthorManager;
+pub use editor::Editor;
+pub use importer::Importer;
+pub use link::LinkManager;
+pub use search::Searcher;
+
 use config::AppConfig;
-use editor::Editor;
 use errors::Result;
-use importer::Importer;
-use link::LinkManager;
 use schema::Database;
-use search::Searcher;
 use std::path::{Path, PathBuf};
 use types::{FileEntry, FileUpdateRequest, ImportMetadata, SearchOptions, SearchResult};
 

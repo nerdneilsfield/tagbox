@@ -114,7 +114,7 @@ impl Searcher {
         sqlx::query(&fts_sql)
             .execute(&self.db_pool)
             .await
-            .map_err(|e| TagboxError::Database(e))?;
+            .map_err(TagboxError::Database)?;
 
         // 重建FTS索引
         self.rebuild_fts_index().await?;
@@ -131,14 +131,14 @@ impl Searcher {
         sqlx::query("DELETE FROM files_fts;")
             .execute(&self.db_pool)
             .await
-            .map_err(|e| TagboxError::Database(e))?;
+            .map_err(TagboxError::Database)?;
 
         // 获取所有文件
         let file_ids: Vec<String> =
             sqlx::query_scalar("SELECT id FROM files WHERE is_deleted = 0;")
                 .fetch_all(&self.db_pool)
                 .await
-                .map_err(|e| TagboxError::Database(e))?;
+                .map_err(TagboxError::Database)?;
 
         info!("找到 {} 个文件需要索引", file_ids.len());
 
@@ -162,7 +162,7 @@ impl Searcher {
         )
         .fetch_optional(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?
+        .map_err(TagboxError::Database)?
         .ok_or_else(|| TagboxError::InvalidFileId(file_id.to_string()))?;
 
         // 获取作者
@@ -182,7 +182,7 @@ impl Searcher {
         )
         .execute(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         // 添加新索引
         sqlx::query!(
@@ -198,7 +198,7 @@ impl Searcher {
         )
         .execute(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         debug!("已更新文件 {} 的FTS索引", file_id);
         Ok(())
@@ -210,7 +210,7 @@ impl Searcher {
         query: &str,
         options: Option<SearchOptions>,
     ) -> Result<SearchResult> {
-        let options = options.unwrap_or_else(|| SearchOptions {
+        let options = options.unwrap_or(SearchOptions {
             offset: 0,
             limit: self.config.search.default_limit,
             sort_by: None,
@@ -422,7 +422,7 @@ impl Searcher {
         let total_count: i64 = sqlx::query_scalar_with(&count_sql, count_args)
             .fetch_one(&self.db_pool)
             .await
-            .map_err(|e| TagboxError::Database(e))?;
+            .map_err(TagboxError::Database)?;
 
         let mut main_args = SqliteArguments::default(); // Use default() to initialize
         for p_val in &params {
@@ -431,7 +431,7 @@ impl Searcher {
         let rows = sqlx::query_with(&sql, main_args)
             .fetch_all(&self.db_pool)
             .await
-            .map_err(|e| TagboxError::Database(e))?;
+            .map_err(TagboxError::Database)?;
 
         // 处理结果
         let mut entries = Vec::with_capacity(rows.len());
@@ -635,33 +635,33 @@ impl Searcher {
 
         // 简单的词法分析
         for part in query.split_whitespace() {
-            if part.starts_with("tag:") {
-                let tag = part[4..].trim();
+            if let Some(tag) = part.strip_prefix("tag:") {
+                let tag = tag.trim();
                 if !tag.is_empty() {
                     parsed.include_tags.push(tag.to_string());
                 }
-            } else if part.starts_with("-tag:") {
-                let tag = part[5..].trim();
+            } else if let Some(tag) = part.strip_prefix("-tag:") {
+                let tag = tag.trim();
                 if !tag.is_empty() {
                     parsed.exclude_tags.push(tag.to_string());
                 }
-            } else if part.starts_with("author:") {
-                let author = part[7..].trim();
+            } else if let Some(author) = part.strip_prefix("author:") {
+                let author = author.trim();
                 if !author.is_empty() {
                     parsed.authors.push(author.to_string());
                 }
-            } else if part.starts_with("year:") {
-                let year = part[5..].trim();
+            } else if let Some(year) = part.strip_prefix("year:") {
+                let year = year.trim();
                 if let Ok(year_num) = year.parse::<i32>() {
                     parsed.year = Some(year_num);
                 }
-            } else if part.starts_with("category:") {
-                let category = part[9..].trim();
+            } else if let Some(category) = part.strip_prefix("category:") {
+                let category = category.trim();
                 if !category.is_empty() {
                     parsed.category = Some(category.to_string());
                 }
-            } else if part.starts_with("title:") {
-                let title = part[6..].trim();
+            } else if let Some(title) = part.strip_prefix("title:") {
+                let title = title.trim();
                 if !title.is_empty() {
                     parsed.title = Some(title.to_string());
                 }
@@ -689,7 +689,7 @@ impl Searcher {
         )
         .fetch_all(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         Ok(authors.iter().map(|a| a.name.clone()).collect())
     }
@@ -707,7 +707,7 @@ impl Searcher {
         )
         .fetch_all(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         Ok(tags.iter().map(|t| t.name.clone()).collect())
     }
@@ -722,7 +722,7 @@ impl Searcher {
         )
         .fetch_all(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         let mut map = HashMap::new();
         for row in metadata {

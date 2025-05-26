@@ -119,14 +119,14 @@ impl From<Option<String>> for RelationType {
     }
 }
 
-impl ToString for RelationType {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for RelationType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RelationType::References => "references".to_string(),
-            RelationType::DerivedFrom => "derived_from".to_string(),
-            RelationType::Relates => "relates".to_string(),
-            RelationType::Depends => "depends".to_string(),
-            RelationType::Custom(s) => s.clone(),
+            RelationType::References => write!(f, "references"),
+            RelationType::DerivedFrom => write!(f, "derived_from"),
+            RelationType::Relates => write!(f, "relates"),
+            RelationType::Depends => write!(f, "depends"),
+            RelationType::Custom(s) => write!(f, "{}", s),
         }
     }
 }
@@ -139,11 +139,11 @@ pub enum QueryParam {
     // Add other types as needed, e.g., Bool(bool), Float(f64)
 }
 
-impl ToString for QueryParam {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for QueryParam {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            QueryParam::String(s) => s.clone(),
-            QueryParam::Int(i) => i.to_string(),
+            QueryParam::String(s) => write!(f, "{}", s),
+            QueryParam::Int(i) => write!(f, "{}", i),
         }
     }
 }

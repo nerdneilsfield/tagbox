@@ -14,6 +14,7 @@ use tracing::{debug, info, warn};
 
 /// 文件导入器
 pub struct Importer {
+    #[allow(dead_code)]
     config: AppConfig,
     db_pool: SqlitePool,
     metainfo_extractor: MetaInfoExtractor,

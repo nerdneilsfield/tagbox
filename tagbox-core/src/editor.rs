@@ -25,7 +25,7 @@ impl Editor {
         )
         .fetch_optional(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?
+        .map_err(TagboxError::Database)?
         .is_some();
 
         if !exists {
@@ -125,7 +125,7 @@ impl Editor {
             sqlx::query_with(&sql_stmt, arguments)
                 .execute(&self.db_pool)
                 .await
-                .map_err(|e| TagboxError::Database(e))?;
+                .map_err(TagboxError::Database)?;
         }
 
         // 处理作者更新
@@ -139,7 +139,7 @@ impl Editor {
             )
             .execute(&self.db_pool)
             .await
-            .map_err(|e| TagboxError::Database(e))?;
+            .map_err(TagboxError::Database)?;
 
             // 添加新作者
             for author_name in authors {
@@ -171,7 +171,7 @@ impl Editor {
             )
             .execute(&self.db_pool)
             .await
-            .map_err(|e| TagboxError::Database(e))?;
+            .map_err(TagboxError::Database)?;
         }
 
         // 处理标签更新
@@ -185,7 +185,7 @@ impl Editor {
             )
             .execute(&self.db_pool)
             .await
-            .map_err(|e| TagboxError::Database(e))?;
+            .map_err(TagboxError::Database)?;
 
             // 添加新标签
             for tag_name in tags {
@@ -205,7 +205,7 @@ impl Editor {
             )
             .execute(&self.db_pool)
             .await
-            .map_err(|e| TagboxError::Database(e))?;
+            .map_err(TagboxError::Database)?;
         }
         Ok(())
     }

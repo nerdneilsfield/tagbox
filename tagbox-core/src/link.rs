@@ -46,7 +46,7 @@ impl LinkManager {
         )
         .fetch_one(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?
+        .map_err(TagboxError::Database)?
         .count
             > 0;
 
@@ -66,7 +66,7 @@ impl LinkManager {
             )
             .execute(&self.db_pool)
             .await
-            .map_err(|e| TagboxError::Database(e))?;
+            .map_err(TagboxError::Database)?;
         } else {
             // 创建新关联
             sqlx::query!(
@@ -81,7 +81,7 @@ impl LinkManager {
             )
             .execute(&self.db_pool)
             .await
-            .map_err(|e| TagboxError::Database(e))?;
+            .map_err(TagboxError::Database)?;
         }
 
         Ok(())
@@ -102,7 +102,7 @@ impl LinkManager {
         )
         .execute(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         if result.rows_affected() == 0 {
             return Err(TagboxError::LinkNotFound {
@@ -134,7 +134,7 @@ impl LinkManager {
         )
         .fetch_all(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         Ok(rows
             .into_iter()
@@ -159,7 +159,7 @@ impl LinkManager {
         )
         .fetch_one(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?
+        .map_err(TagboxError::Database)?
         .count
             > 0;
 
@@ -176,7 +176,7 @@ impl LinkManager {
         )
         .fetch_one(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?
+        .map_err(TagboxError::Database)?
         .count
             > 0;
 

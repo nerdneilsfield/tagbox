@@ -1,4 +1,3 @@
-use serde_json;
 use std::path::Path;
 use tagbox_core::config::AppConfig;
 use tagbox_core::metainfo::MetaInfoExtractor;
@@ -183,7 +182,6 @@ async fn test_json_metadata_merge() {
 
 #[cfg(test)]
 mod metadata_format_tests {
-    use super::*;
 
     #[test]
     fn test_file_metadata_structure() {
@@ -210,7 +208,7 @@ mod metadata_format_tests {
         });
 
         assert!(epub_metadata["epub"]["spine_count"].as_u64().unwrap() == 10);
-        assert!(epub_metadata["epub"]["has_cover"].as_bool().unwrap() == true);
+        assert!(epub_metadata["epub"]["has_cover"].as_bool().unwrap());
 
         // 测试图片元数据结构
         let image_metadata = serde_json::json!({
@@ -253,7 +251,7 @@ mod metadata_format_tests {
         });
 
         assert!(paper_metadata["paper"]["doi"].as_str().unwrap() == "10.1234/example");
-        assert!(paper_metadata["paper"]["peer_reviewed"].as_bool().unwrap() == true);
+        assert!(paper_metadata["paper"]["peer_reviewed"].as_bool().unwrap());
         assert!(
             paper_metadata["paper"]["keywords"]
                 .as_array()

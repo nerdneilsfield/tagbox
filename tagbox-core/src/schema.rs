@@ -15,7 +15,7 @@ impl Database {
     pub async fn new(path: &Path) -> Result<Self> {
         // 确保父目录存在
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|e| TagboxError::Io(e))?;
+            fs::create_dir_all(parent).map_err(TagboxError::Io)?;
         }
 
         let url = format!("sqlite:{}", path.to_string_lossy());
@@ -24,19 +24,19 @@ impl Database {
             .max_connections(5)
             .connect(&url)
             .await
-            .map_err(|e| TagboxError::Database(e))?;
+            .map_err(TagboxError::Database)?;
 
         // 启用外键约束
         sqlx::query("PRAGMA foreign_keys = ON;")
             .execute(&pool)
             .await
-            .map_err(|e| TagboxError::Database(e))?;
+            .map_err(TagboxError::Database)?;
 
         // 启用WAL日志模式提高并发性能
         sqlx::query("PRAGMA journal_mode = WAL;")
             .execute(&pool)
             .await
-            .map_err(|e| TagboxError::Database(e))?;
+            .map_err(TagboxError::Database)?;
 
         // 注册 Signal-FTS5 扩展
         // register_signal_fts5_extension(&pool).await?;
@@ -73,7 +73,7 @@ impl Database {
         )
         .execute(&self.pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         // 创建作者表
         sqlx::query(
@@ -89,7 +89,7 @@ impl Database {
         )
         .execute(&self.pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         // 创建文件-作者关联表
         sqlx::query(
@@ -105,7 +105,7 @@ impl Database {
         )
         .execute(&self.pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         // 创建标签表
         sqlx::query(
@@ -123,7 +123,7 @@ impl Database {
         )
         .execute(&self.pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         // 创建文件-标签关联表
         sqlx::query(
@@ -139,7 +139,7 @@ impl Database {
         )
         .execute(&self.pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         // 创建作者别名表
         sqlx::query(
@@ -154,7 +154,7 @@ impl Database {
         )
         .execute(&self.pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         // 创建文件元数据表
         sqlx::query(
@@ -170,7 +170,7 @@ impl Database {
         )
         .execute(&self.pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         // 创建文件关联表
         sqlx::query(
@@ -188,7 +188,7 @@ impl Database {
         )
         .execute(&self.pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         // 创建全文搜索虚拟表 (使用 Signal CJK 分词器)
         let create_fts_result = sqlx::query(
@@ -252,7 +252,7 @@ impl Database {
                         )
                         .execute(&self.pool)
                         .await
-                        .map_err(|e| TagboxError::Database(e))?;
+                        .map_err(TagboxError::Database)?;
 
                         info!("FTS4虚拟表创建成功（作为备选）");
                     }
@@ -271,7 +271,7 @@ impl Database {
         )
         .execute(&self.pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         sqlx::query(
             r#"
@@ -282,7 +282,7 @@ impl Database {
         )
         .execute(&self.pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         sqlx::query(
             r#"
@@ -295,7 +295,7 @@ impl Database {
         )
         .execute(&self.pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         info!("数据库迁移完成");
         Ok(())
@@ -311,7 +311,7 @@ impl Database {
 /// 注册 Signal FTS5 扩展的辅助函数
 async fn register_signal_fts5_extension(pool: &SqlitePool) -> Result<()> {
     // 获取 SQLite 数据库句柄
-    let mut conn = pool.acquire().await.map_err(|e| TagboxError::Database(e))?;
+    let mut conn = pool.acquire().await.map_err(TagboxError::Database)?;
 
     // 获取 SQLite3 原生句柄
     let db_ptr = unsafe {

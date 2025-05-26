@@ -97,9 +97,9 @@ impl Default for AppConfig {
 impl AppConfig {
     /// 从TOML文件加载配置
     pub async fn from_file(path: &Path) -> Result<Self> {
-        let content = fs::read_to_string(path).map_err(|e| TagboxError::Io(e))?;
+        let content = fs::read_to_string(path).map_err(TagboxError::Io)?;
 
-        let config: AppConfig = toml::from_str(&content).map_err(|e| TagboxError::TomlParse(e))?;
+        let config: AppConfig = toml::from_str(&content).map_err(TagboxError::TomlParse)?;
 
         config.validate()?;
         Ok(config)

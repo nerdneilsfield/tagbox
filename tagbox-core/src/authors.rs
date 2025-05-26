@@ -28,7 +28,7 @@ impl AuthorManager {
         )
         .fetch_optional(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?
+        .map_err(TagboxError::Database)?
         .ok_or_else(|| TagboxError::Config(format!("作者ID不存在: {}", author_id_param)))?;
 
         // 获取别名. The author_aliases table uses (alias_id, canonical_id).
@@ -51,7 +51,7 @@ impl AuthorManager {
         )
         .fetch_all(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?
+        .map_err(TagboxError::Database)?
         .into_iter()
         .map(|row| row.name) // row.name is String (NOT NULL in db)
         .collect();
@@ -77,7 +77,7 @@ impl AuthorManager {
         )
         .fetch_optional(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         if let Some(author) = existing {
             return self
@@ -101,7 +101,7 @@ impl AuthorManager {
         )
         .execute(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         // 添加别名
         for alias in aliases {
@@ -158,7 +158,7 @@ impl AuthorManager {
         )
         .execute(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         Ok(())
     }
@@ -172,7 +172,7 @@ impl AuthorManager {
         )
         .fetch_one(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?
+        .map_err(TagboxError::Database)?
         .count
             > 0;
 
@@ -182,7 +182,7 @@ impl AuthorManager {
         )
         .fetch_one(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?
+        .map_err(TagboxError::Database)?
         .count
             > 0;
 
@@ -191,11 +191,7 @@ impl AuthorManager {
         }
 
         // 开始事务
-        let mut tx = self
-            .db_pool
-            .begin()
-            .await
-            .map_err(|e| TagboxError::Database(e))?;
+        let mut tx = self.db_pool.begin().await.map_err(TagboxError::Database)?;
 
         // 1. 移动文件-作者关联
         sqlx::query!(
@@ -208,7 +204,7 @@ impl AuthorManager {
         )
         .execute(&mut *tx)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         // 2. 移动作者别名: Update existing entries in `author_aliases` where `alias_id` or `canonical_id` is `source_id`.
         //    - If `alias_id` = `source_id`, update it to `target_id` (if `target_id` isn't already an alias itself or the canonical_id).
@@ -226,7 +222,7 @@ impl AuthorManager {
         )
         .execute(&mut *tx)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         // 3. 记录合并操作: Mark source_id as an alias of target_id.
         //    The old query `INSERT INTO author_aliases (alias, author_id) SELECT name, ? FROM authors WHERE id = ?`
@@ -245,7 +241,7 @@ impl AuthorManager {
         )
         .execute(&mut *tx)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         // 4. 删除源作者 (authors.is_deleted should be set to true instead of DELETE)
         // Or, if authors table `aliases` JSON field was the source of truth for alias strings, that needs update.
@@ -254,10 +250,10 @@ impl AuthorManager {
         sqlx::query!(r#"DELETE FROM authors WHERE id = ?"#, source_id)
             .execute(&mut *tx)
             .await
-            .map_err(|e| TagboxError::Database(e))?;
+            .map_err(TagboxError::Database)?;
 
         // 提交事务
-        tx.commit().await.map_err(|e| TagboxError::Database(e))?;
+        tx.commit().await.map_err(TagboxError::Database)?;
 
         info!("作者 {} 已合并到 {}", source_id, target_id);
         Ok(())
@@ -280,7 +276,7 @@ impl AuthorManager {
         )
         .fetch_all(&self.db_pool)
         .await
-        .map_err(|e| TagboxError::Database(e))?;
+        .map_err(TagboxError::Database)?;
 
         let mut potential_matches = Vec::new();
 
@@ -364,8 +360,6 @@ impl AuthorManager {
             .filter(|c| name2_norm.contains(*c))
             .count();
 
-        let similarity = common_chars as f32 * 2.0 / (name1_norm.len() + name2_norm.len()) as f32;
-
-        similarity
+        common_chars as f32 * 2.0 / (name1_norm.len() + name2_norm.len()) as f32
     }
 }

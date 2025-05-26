@@ -135,7 +135,7 @@ impl PathGenerator {
     fn sanitize_filename(&self, name: &str) -> String {
         // 替换常见的非法文件名字符
         let mut result = name.replace(
-            &['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', '.', ';'],
+            ['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', '.', ';'],
             "_",
         );
 

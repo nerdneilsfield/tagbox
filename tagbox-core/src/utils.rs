@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 /// 计算文件的 SHA-256 哈希值
 pub async fn calculate_file_hash(path: &Path) -> Result<String> {
-    let file_content = fs::read(path).map_err(|e| TagboxError::Io(e))?;
+    let file_content = fs::read(path).map_err(TagboxError::Io)?;
 
     let mut hasher = Sha256::new();
     hasher.update(&file_content);
@@ -19,7 +19,7 @@ pub async fn calculate_file_hash(path: &Path) -> Result<String> {
 
 /// 计算文件的 Blake2b 哈希值
 pub async fn calculate_file_blake2b(path: &Path) -> Result<String> {
-    let file_content = fs::read(path).map_err(|e| TagboxError::Io(e))?;
+    let file_content = fs::read(path).map_err(TagboxError::Io)?;
 
     let mut hasher = Blake2b512::new();
     hasher.update(&file_content);
@@ -30,7 +30,7 @@ pub async fn calculate_file_blake2b(path: &Path) -> Result<String> {
 
 /// 通用哈希计算函数，支持多种哈希算法
 pub async fn calculate_hash(path: &Path, hash_type: HashType) -> Result<String> {
-    let file_content = fs::read(path).map_err(|e| TagboxError::Io(e))?;
+    let file_content = fs::read(path).map_err(TagboxError::Io)?;
 
     match hash_type {
         HashType::Sha256 => {
@@ -67,7 +67,7 @@ pub fn normalize_path(path: &Path) -> Result<PathBuf> {
 /// 确保目录存在，如果不存在则创建
 pub fn ensure_dir_exists(path: &Path) -> Result<()> {
     if !path.exists() {
-        fs::create_dir_all(path).map_err(|e| TagboxError::Io(e))?;
+        fs::create_dir_all(path).map_err(TagboxError::Io)?;
     } else if !path.is_dir() {
         return Err(TagboxError::Config(format!(
             "路径 {} 存在但不是目录",
@@ -110,11 +110,11 @@ pub async fn safe_copy_file(source: &Path, dest: &Path) -> Result<()> {
     // 如果目标文件已存在，先进行备份
     if dest.exists() {
         let backup_path = generate_backup_path(dest)?;
-        fs::rename(dest, &backup_path).map_err(|e| TagboxError::Io(e))?;
+        fs::rename(dest, &backup_path).map_err(TagboxError::Io)?;
     }
 
     // 复制文件
-    fs::copy(source, dest).map_err(|e| TagboxError::Io(e))?;
+    fs::copy(source, dest).map_err(TagboxError::Io)?;
 
     Ok(())
 }
