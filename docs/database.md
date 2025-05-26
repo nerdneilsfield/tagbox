@@ -1,5 +1,56 @@
 # TagBox 数据库设计文档
 
+```mermaid
+erDiagram
+  files ||--o{ file_tags : has
+  files ||--o{ file_authors : has
+  files ||--o{ file_links : links
+  files ||--|{ file_search : indexed_by
+  files ||--o{ file_access_log : accessed_by
+  files }o--|| categories : belongs_to
+
+  file_tags }o--|| tags : tagged_as
+  tags ||--|{ tags : parent_of
+
+  file_authors }o--|| authors : written_by
+  authors ||--o{ author_aliases : aliased_by
+
+  file_links }o--|| files : to_file
+
+  files {
+    TEXT id PK
+    TEXT title
+    TEXT current_hash
+    TEXT category_id FK
+    DATETIME created_at
+    BOOLEAN is_deleted
+  }
+
+  categories {
+    TEXT id PK
+    TEXT path
+    TEXT parent
+  }
+
+  tags {
+    TEXT id PK
+    TEXT path
+    TEXT parent_id
+    BOOLEAN is_deleted
+  }
+
+  authors {
+    TEXT id PK
+    TEXT name
+    TEXT real_name
+  }
+
+  author_aliases {
+    TEXT alias_id FK
+    TEXT canonical_id FK
+  }
+```
+
 ## 一、设计目标
 
 TagBox 的数据库旨在实现以下核心能力：
