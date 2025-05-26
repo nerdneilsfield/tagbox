@@ -516,6 +516,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "epub_metadata"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee7a4b2f875d863d23ccb198fbe50bfc7d4d59b720c3ca8ae40d485a5224852b"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1112,6 +1121,15 @@ dependencies = [
  "same-file",
  "walkdir",
  "winapi-util",
+]
+
+[[package]]
+name = "imageinfo"
+version = "0.7.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f206748c3ab3de9dc602a8c9dff3814eee710acb70a7958a599e48a8331adc2"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -2287,6 +2305,8 @@ dependencies = [
  "async-trait",
  "blake2",
  "chrono",
+ "epub_metadata",
+ "imageinfo",
  "lazy_static",
  "mockall",
  "pest",
