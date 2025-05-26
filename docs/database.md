@@ -51,6 +51,8 @@ erDiagram
   }
 ```
 
+![database ER Diagram](./database.png)
+
 ## 一、设计目标
 
 TagBox 的数据库旨在实现以下核心能力：
