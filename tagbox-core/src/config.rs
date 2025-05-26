@@ -1,7 +1,7 @@
 use crate::errors::{Result, TagboxError};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 /// 应用配置总结构
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -97,34 +97,32 @@ impl Default for AppConfig {
 impl AppConfig {
     /// 从TOML文件加载配置
     pub async fn from_file(path: &Path) -> Result<Self> {
-        let content = fs::read_to_string(path)
-            .map_err(|e| TagboxError::Io(e))?;
-        
-        let config: AppConfig = toml::from_str(&content)
-            .map_err(|e| TagboxError::TomlParse(e))?;
-        
+        let content = fs::read_to_string(path).map_err(|e| TagboxError::Io(e))?;
+
+        let config: AppConfig = toml::from_str(&content).map_err(|e| TagboxError::TomlParse(e))?;
+
         config.validate()?;
         Ok(config)
     }
-    
+
     /// 验证配置是否有效
     pub fn validate(&self) -> Result<()> {
         // 检查路径模板是否包含必要的变量
         if !self.import.paths.rename_template.contains("{title}") {
             return Err(TagboxError::Config(
-                "重命名模板必须包含 {title} 变量".to_string()
+                "重命名模板必须包含 {title} 变量".to_string(),
             ));
         }
-        
+
         // 检查分类模板是否包含文件名变量
         if !self.import.paths.classify_template.contains("{filename}") {
             return Err(TagboxError::Config(
-                "分类模板必须包含 {filename} 变量".to_string()
+                "分类模板必须包含 {filename} 变量".to_string(),
             ));
         }
-        
+
         // 其他验证规则...
-        
+
         Ok(())
     }
 }

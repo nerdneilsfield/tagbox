@@ -1,0 +1,260 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (without v prefix)'
+        required: true
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Create release artifacts for multiple platforms
+  build-release:
+    name: Build Release (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            suffix: ""
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            suffix: ""
+            cross: true
+          
+          # macOS
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            suffix: ""
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            suffix: ""
+          
+          # Windows
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            suffix: ".exe"
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            suffix: ".exe"
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools
+        if: matrix.cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Setup cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-release-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-release-${{ matrix.target }}-
+            ${{ runner.os }}-cargo-release-
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config
+
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --no-default-features --features sqlite
+
+      - name: Prepare SQLx offline
+        run: |
+          mkdir -p .sqlx-data
+          touch .sqlx-data/tagbox.db
+          DATABASE_URL="sqlite:.sqlx-data/tagbox.db" cargo run --bin tagbox-init-db
+          cd tagbox-core && DATABASE_URL="sqlite:../.sqlx-data/tagbox.db" cargo sqlx prepare -- --lib
+
+      - name: Build release binary
+        run: |
+          if [[ "${{ matrix.cross }}" == "true" ]]; then
+            cross build --release --target ${{ matrix.target }} --bin tagbox-cli
+          else
+            cargo build --release --target ${{ matrix.target }} --bin tagbox-cli
+          fi
+        shell: bash
+
+      - name: Create archive
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/tagbox-cli${{ matrix.suffix }} dist/
+          cp README.md LICENSE dist/
+          
+          cd dist
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            7z a ../tagbox-${{ matrix.target }}.zip .
+          else
+            tar czf ../tagbox-${{ matrix.target }}.tar.gz .
+          fi
+        shell: bash
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tagbox-${{ matrix.target }}
+          path: |
+            tagbox-${{ matrix.target }}.tar.gz
+            tagbox-${{ matrix.target }}.zip
+
+  # Create GitHub release
+  create-release:
+    name: Create Release
+    needs: build-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION="v${{ github.event.inputs.version }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Extract changelog for this version
+          VERSION="${{ steps.version.outputs.version }}"
+          CHANGELOG=$(awk -v ver="$VERSION" '
+            /^## / { if (p) exit; if ($2 == ver || $2 == "["ver"]") p=1; next }
+            p { print }
+          ' CHANGELOG.md)
+          
+          # If no specific version found, use latest
+          if [[ -z "$CHANGELOG" ]]; then
+            CHANGELOG=$(awk '/^## / { if (NR > 1) exit } NR > 1 { print }' CHANGELOG.md)
+          fi
+          
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: TagBox ${{ steps.version.outputs.version }}
+          body: |
+            ## Changes
+            
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ## Installation
+            
+            Download the appropriate binary for your platform and extract it.
+            
+            ### Supported Platforms
+            
+            - Linux x86_64
+            - Linux ARM64
+            - macOS x86_64 (Intel)
+            - macOS ARM64 (Apple Silicon)
+            - Windows x86_64
+            - Windows ARM64
+            
+            ### Quick Install (Unix-like systems)
+            
+            ```bash
+            # Download and extract (replace PLATFORM with your target)
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/tagbox-PLATFORM.tar.gz | tar xz
+            
+            # Make executable and move to PATH
+            chmod +x tagbox-cli
+            sudo mv tagbox-cli /usr/local/bin/
+            ```
+          files: |
+            artifacts/tagbox-*/tagbox-*.tar.gz
+            artifacts/tagbox-*/tagbox-*.zip
+          draft: true
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+
+  # Build and publish crates
+  publish-crates:
+    name: Publish to crates.io
+    needs: create-release
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.ref, '-') }}  # Don't publish pre-releases
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config
+          cargo install sqlx-cli --no-default-features --features sqlite
+
+      - name: Prepare SQLx offline
+        run: |
+          mkdir -p .sqlx-data
+          touch .sqlx-data/tagbox.db
+          DATABASE_URL="sqlite:.sqlx-data/tagbox.db" cargo run --bin tagbox-init-db
+          cd tagbox-core && DATABASE_URL="sqlite:../.sqlx-data/tagbox.db" cargo sqlx prepare -- --lib
+
+      - name: Check crate versions
+        run: |
+          # Verify all crates have the same version
+          VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "tagbox-core") | .version')
+          echo "Publishing version: $VERSION"
+
+      - name: Publish crates
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          # Publish in dependency order
+          cd tagbox-config && cargo publish --no-verify && cd ..
+          sleep 30  # Wait for crates.io to index
+          
+          cd tagbox-core && cargo publish --no-verify && cd ..
+          sleep 30
+          
+          cd tagbox-cli && cargo publish --no-verify && cd ..
+          sleep 30
+          
+          # Optional: publish other crates if they're ready
+          # cd tagbox-gui && cargo publish --no-verify && cd ..
+          # cd tagbox-tui && cargo publish --no-verify && cd ..

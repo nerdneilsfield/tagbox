@@ -1,6 +1,31 @@
 # Changelog
 
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [Unreleased]
+
+### Added
+- Comprehensive CI/CD pipeline with GitHub Actions
+  - Main CI workflow for push and pull requests with multi-platform support
+  - Nightly builds with extended test matrix
+  - Release workflow with cross-platform binary builds
+  - Dependabot configuration for automated dependency updates
+- Local CI test script (`scripts/ci-test.sh`) with quick and full modes
+- Cross-platform Justfile for unified build commands
+- Caching strategy using sccache for faster Rust compilations
+- Code coverage reporting with cargo-tarpaulin
+- Test result artifacts upload to GitHub Actions
+
+### Changed
+- Migrated project documentation from AGENTS.md to CLAUDE.md
+- Updated build scripts for better cross-platform compatibility
+
+### Fixed
+- Code formatting issues across all packages
+- Multiple Clippy warnings (to be addressed in future commits)
 
 ## [2025-05-26] TagBox Rust 项目大规模修复与同步
 

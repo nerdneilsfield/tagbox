@@ -1,7 +1,7 @@
-use tagbox_core::config::AppConfig;
-use tempfile::tempdir;
 use std::fs;
 use std::path::Path;
+use tagbox_core::config::AppConfig;
+use tempfile::tempdir;
 
 #[tokio::test]
 async fn test_load_and_validate_config() {

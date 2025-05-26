@@ -1,7 +1,7 @@
 use crate::errors::{Result, TagboxError};
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 use tracing::{info, warn};
 // use libsqlite3_sys::{sqlite3, sqlite3_db_handle};
 // use signal_tokenizer::{CJKTokenizer, register_tokenizer};
@@ -17,37 +17,37 @@ impl Database {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|e| TagboxError::Io(e))?;
         }
-        
+
         let url = format!("sqlite:{}", path.to_string_lossy());
-        
+
         let pool = SqlitePoolOptions::new()
             .max_connections(5)
             .connect(&url)
             .await
             .map_err(|e| TagboxError::Database(e))?;
-        
+
         // 启用外键约束
         sqlx::query("PRAGMA foreign_keys = ON;")
             .execute(&pool)
             .await
             .map_err(|e| TagboxError::Database(e))?;
-            
+
         // 启用WAL日志模式提高并发性能
         sqlx::query("PRAGMA journal_mode = WAL;")
             .execute(&pool)
             .await
             .map_err(|e| TagboxError::Database(e))?;
-        
+
         // 注册 Signal-FTS5 扩展
         // register_signal_fts5_extension(&pool).await?;
-            
+
         Ok(Database { pool })
     }
-    
+
     /// 应用迁移脚本创建表结构
     pub async fn migrate(&self) -> Result<()> {
         info!("开始应用数据库迁移...");
-        
+
         // 创建文件表
         sqlx::query(
             r#"
@@ -74,7 +74,7 @@ impl Database {
         .execute(&self.pool)
         .await
         .map_err(|e| TagboxError::Database(e))?;
-        
+
         // 创建作者表
         sqlx::query(
             r#"
@@ -90,7 +90,7 @@ impl Database {
         .execute(&self.pool)
         .await
         .map_err(|e| TagboxError::Database(e))?;
-        
+
         // 创建文件-作者关联表
         sqlx::query(
             r#"
@@ -106,7 +106,7 @@ impl Database {
         .execute(&self.pool)
         .await
         .map_err(|e| TagboxError::Database(e))?;
-        
+
         // 创建标签表
         sqlx::query(
             r#"
@@ -124,7 +124,7 @@ impl Database {
         .execute(&self.pool)
         .await
         .map_err(|e| TagboxError::Database(e))?;
-        
+
         // 创建文件-标签关联表
         sqlx::query(
             r#"
@@ -140,7 +140,7 @@ impl Database {
         .execute(&self.pool)
         .await
         .map_err(|e| TagboxError::Database(e))?;
-        
+
         // 创建作者别名表
         sqlx::query(
             r#"
@@ -155,7 +155,7 @@ impl Database {
         .execute(&self.pool)
         .await
         .map_err(|e| TagboxError::Database(e))?;
-        
+
         // 创建文件元数据表
         sqlx::query(
             r#"
@@ -171,7 +171,7 @@ impl Database {
         .execute(&self.pool)
         .await
         .map_err(|e| TagboxError::Database(e))?;
-        
+
         // 创建文件关联表
         sqlx::query(
             r#"
@@ -189,7 +189,7 @@ impl Database {
         .execute(&self.pool)
         .await
         .map_err(|e| TagboxError::Database(e))?;
-        
+
         // 创建全文搜索虚拟表 (使用 Signal CJK 分词器)
         let create_fts_result = sqlx::query(
             r#"
@@ -206,12 +206,15 @@ impl Database {
         )
         .execute(&self.pool)
         .await;
-        
+
         match create_fts_result {
             Ok(_) => info!("FTS5虚拟表创建成功，使用 Signal CJK 分词器"),
             Err(e) => {
-                warn!("无法创建带Signal CJK分词器的FTS5表，尝试使用标准分词器: {}", e);
-                
+                warn!(
+                    "无法创建带Signal CJK分词器的FTS5表，尝试使用标准分词器: {}",
+                    e
+                );
+
                 // 尝试使用标准分词器
                 let create_fts5_standard = sqlx::query(
                     r#"
@@ -228,12 +231,12 @@ impl Database {
                 )
                 .execute(&self.pool)
                 .await;
-                
+
                 match create_fts5_standard {
                     Ok(_) => info!("FTS5虚拟表创建成功，使用标准分词器"),
                     Err(e2) => {
                         warn!("无法创建标准FTS5表，尝试使用FTS4: {}", e2);
-                        
+
                         // 尝试创建基本的FTS4表（更广泛支持）
                         let create_fts4_result = sqlx::query(
                             r#"
@@ -250,13 +253,13 @@ impl Database {
                         .execute(&self.pool)
                         .await
                         .map_err(|e| TagboxError::Database(e))?;
-                        
+
                         info!("FTS4虚拟表创建成功（作为备选）");
                     }
                 }
             }
         }
-        
+
         // 创建触发器在文件更新时更新FTS索引
         sqlx::query(
             r#"
@@ -269,7 +272,7 @@ impl Database {
         .execute(&self.pool)
         .await
         .map_err(|e| TagboxError::Database(e))?;
-        
+
         sqlx::query(
             r#"
             CREATE TRIGGER IF NOT EXISTS files_ad AFTER DELETE ON files BEGIN
@@ -280,7 +283,7 @@ impl Database {
         .execute(&self.pool)
         .await
         .map_err(|e| TagboxError::Database(e))?;
-        
+
         sqlx::query(
             r#"
             CREATE TRIGGER IF NOT EXISTS files_au AFTER UPDATE ON files BEGIN
@@ -293,11 +296,11 @@ impl Database {
         .execute(&self.pool)
         .await
         .map_err(|e| TagboxError::Database(e))?;
-        
+
         info!("数据库迁移完成");
         Ok(())
     }
-    
+
     /// 获取数据库连接池引用
     pub fn pool(&self) -> &SqlitePool {
         &self.pool
@@ -309,20 +312,20 @@ impl Database {
 async fn register_signal_fts5_extension(pool: &SqlitePool) -> Result<()> {
     // 获取 SQLite 数据库句柄
     let mut conn = pool.acquire().await.map_err(|e| TagboxError::Database(e))?;
-    
+
     // 获取 SQLite3 原生句柄
     let db_ptr = unsafe {
         let conn_ptr = conn.as_raw(); // 获取 SQLite 连接指针
         sqlite3_db_handle(conn_ptr as *mut _) // 获取底层 sqlite3 句柄
     };
-    
+
     if db_ptr.is_null() {
         return Err(TagboxError::Config("无法获取SQLite数据库句柄".to_string()));
     }
-    
+
     // 注册 Signal CJK 分词器
     let tokenizer = CJKTokenizer::new();
-    
+
     unsafe {
         match register_tokenizer(db_ptr, "signal_cjk", tokenizer) {
             Ok(_) => {

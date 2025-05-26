@@ -1,9 +1,9 @@
 // 在 update_file 方法中添加 FTS 索引更新逻辑
 
-use sqlx::{SqlitePool, sqlite::SqliteArguments, Arguments};
-use crate::types::{FileUpdateRequest, QueryParam}; // Assuming FileUpdateRequest is in types.rs
 use crate::errors::{Result, TagboxError}; // Assuming Result and TagboxError are in errors.rs
-use crate::utils::{current_time, require_field}; // Assuming current_time is in utils.rs
+use crate::types::{FileUpdateRequest, QueryParam}; // Assuming FileUpdateRequest is in types.rs
+use crate::utils::{current_time, require_field};
+use sqlx::{sqlite::SqliteArguments, Arguments, SqlitePool}; // Assuming current_time is in utils.rs
 
 pub struct Editor {
     db_pool: SqlitePool,
@@ -42,7 +42,8 @@ impl Editor {
             params.push(QueryParam::String(title.clone()));
         }
 
-        if let Some(category_val) = &update.category1 { // Changed from category_id, using suggestion
+        if let Some(category_val) = &update.category1 {
+            // Changed from category_id, using suggestion
             updates.push("category_id = ?".to_string()); // DB column is category_id
             params.push(QueryParam::String(category_val.clone()));
         }
@@ -56,7 +57,8 @@ impl Editor {
         //     params.push(QueryParam::String(category3.clone()));
         // }
 
-        if let Some(summary_val) = &update.summary { // Changed from summaries, using suggestion
+        if let Some(summary_val) = &update.summary {
+            // Changed from summaries, using suggestion
             updates.push("summaries = ?".to_string()); // DB column is summaries
             params.push(QueryParam::String(summary_val.clone()));
         }
@@ -66,7 +68,7 @@ impl Editor {
             // is_deleted in DB is INTEGER, in FileUpdateRequest is bool
             params.push(QueryParam::Int(if is_deleted { 1 } else { 0 }));
         }
-        
+
         // Fields below are removed based on "no field" errors for FileUpdateRequest
         // if let Some(source_url) = &update.source_url {
         //     updates.push("source_url = ?".to_string());
@@ -77,33 +79,29 @@ impl Editor {
         //     updates.push("thumbnail_url = ?".to_string());
         //     params.push(QueryParam::String(thumbnail_url.clone()));
         // }
-        
+
         // if let Some(file_size) = update.file_size {
         //     updates.push("file_size = ?".to_string());
         //     params.push(QueryParam::Int(file_size));
         // }
-        
+
         // if let Some(year) = update.year { // year was Option<i32>
         //     updates.push("year = ?".to_string());
         //     params.push(QueryParam::Int(year.into())); // Convert i32 to i64 for QueryParam::Int
         // }
-        
+
         // if let Some(rating) = update.rating {
         //     updates.push("rating = ?".to_string());
         //     // QueryParam::Float was removed as it's not in QueryParam enum
-        //     // params.push(QueryParam::Float(rating)); 
+        //     // params.push(QueryParam::Float(rating));
         // }
-
 
         // 添加更新时间
         updates.push("updated_at = ?".to_string());
         params.push(QueryParam::String(now.clone()));
 
         if !updates.is_empty() {
-            let sql_stmt = format!(
-                "UPDATE files SET {} WHERE id = ?",
-                updates.join(", ")
-            );
+            let sql_stmt = format!("UPDATE files SET {} WHERE id = ?", updates.join(", "));
 
             let mut arguments = SqliteArguments::default(); // Use default()
             for p_val in &params {
@@ -138,7 +136,8 @@ impl Editor {
             .map_err(|e| TagboxError::Database(e))?;
 
             // 添加新作者
-            for author_name in authors { // Assuming authors is Vec<String> of names. Need to get/create author IDs.
+            for author_name in authors {
+                // Assuming authors is Vec<String> of names. Need to get/create author IDs.
                 // This part requires AuthorManager logic or direct insertion if simple name suffices for linking.
                 // For now, let's assume self.add_author_to_file handles finding or creating author by name and linking.
                 // If add_author_to_file is not available in Editor, we need a different approach.
@@ -152,7 +151,6 @@ impl Editor {
 
                 // Placeholder: Assuming add_author_to_file is a method on Editor that handles this.
                 self.add_author_to_file(file_id, author_name).await?;
-
             }
 
             // 因为作者改变，需要手动更新 FTS 索引的 authors 列
@@ -210,12 +208,10 @@ impl Editor {
     // or calls to respective managers (AuthorManager, TagManager)
     async fn add_author_to_file(&self, file_id: &str, author_name: &str) -> Result<()> {
         // 1. Check if author exists by name, get ID. If not, create author, get ID.
-        let author = sqlx::query!(
-            "SELECT id FROM authors WHERE name = ?",
-            author_name
-        )
-        .fetch_optional(&self.db_pool)
-        .await.map_err(TagboxError::Database)?;
+        let author = sqlx::query!("SELECT id FROM authors WHERE name = ?", author_name)
+            .fetch_optional(&self.db_pool)
+            .await
+            .map_err(TagboxError::Database)?;
 
         let author_id = if let Some(auth) = author {
             auth.id
@@ -224,31 +220,35 @@ impl Editor {
             let now = current_time().to_rfc3339();
             sqlx::query!(
                 "INSERT INTO authors (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)",
-                new_author_id, author_name, now, now
+                new_author_id,
+                author_name,
+                now,
+                now
             )
             .execute(&self.db_pool)
-            .await.map_err(TagboxError::Database)?;
+            .await
+            .map_err(TagboxError::Database)?;
             Some(new_author_id) // Ensure compatible types
         };
 
         // 2. Link file_id and author_id in file_authors
         sqlx::query!(
             "INSERT OR IGNORE INTO file_authors (file_id, author_id) VALUES (?, ?)",
-            file_id, author_id
+            file_id,
+            author_id
         )
         .execute(&self.db_pool)
-        .await.map_err(TagboxError::Database)?;
+        .await
+        .map_err(TagboxError::Database)?;
         Ok(())
     }
 
     async fn add_tag_to_file(&self, file_id: &str, tag_name: &str) -> Result<()> {
         // 1. Check if tag exists by name, get ID. If not, create tag, get ID.
-        let tag = sqlx::query!(
-            "SELECT id FROM tags WHERE name = ?",
-            tag_name
-        )
-        .fetch_optional(&self.db_pool)
-        .await.map_err(TagboxError::Database)?;
+        let tag = sqlx::query!("SELECT id FROM tags WHERE name = ?", tag_name)
+            .fetch_optional(&self.db_pool)
+            .await
+            .map_err(TagboxError::Database)?;
 
         let tag_id = if let Some(t) = tag {
             t.id
@@ -265,14 +265,16 @@ impl Editor {
             .await.map_err(TagboxError::Database)?;
             Some(new_tag_id) // Ensure compatible types
         };
-        
+
         // 2. Link file_id and tag_id in file_tags
         sqlx::query!(
             "INSERT OR IGNORE INTO file_tags (file_id, tag_id) VALUES (?, ?)",
-            file_id, tag_id
+            file_id,
+            tag_id
         )
         .execute(&self.db_pool)
-        .await.map_err(TagboxError::Database)?;
+        .await
+        .map_err(TagboxError::Database)?;
         Ok(())
     }
 
@@ -287,7 +289,10 @@ impl Editor {
         .map_err(TagboxError::Database)?
         .ok_or_else(|| TagboxError::InvalidFileId(file_id.to_string()))?;
 
-        Ok(std::path::PathBuf::from(require_field(file_path.relative_path, "files.relative_path")?))
+        Ok(std::path::PathBuf::from(require_field(
+            file_path.relative_path,
+            "files.relative_path",
+        )?))
     }
 
     /// 获取文件信息
@@ -342,7 +347,10 @@ impl Editor {
             year: file_row.year.map(|y| y as i32),
             publisher: file_row.publisher,
             source: file_row.source_url,
-            path: std::path::PathBuf::from(require_field(file_row.relative_path, "files.relative_path")?),
+            path: std::path::PathBuf::from(require_field(
+                file_row.relative_path,
+                "files.relative_path",
+            )?),
             original_path: None,
             original_filename: require_field(file_row.filename, "files.filename")?,
             hash: require_field(file_row.initial_hash, "files.initial_hash")?,
@@ -352,8 +360,12 @@ impl Editor {
             category3: None,
             tags,
             summary: file_row.summaries,
-            created_at: DateTime::parse_from_rfc3339(&file_row.created_at).map(|dt| dt.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now()),
-            updated_at: DateTime::parse_from_rfc3339(&file_row.updated_at).map(|dt| dt.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now()),
+            created_at: DateTime::parse_from_rfc3339(&file_row.created_at)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+            updated_at: DateTime::parse_from_rfc3339(&file_row.updated_at)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
             last_accessed: None,
             is_deleted: file_row.is_deleted != 0,
         })

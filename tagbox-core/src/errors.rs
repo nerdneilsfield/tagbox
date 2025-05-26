@@ -30,15 +30,18 @@ pub enum TagboxError {
 
     #[error("元信息提取失败: {0}")]
     MetaInfoExtraction(String),
-    
+
     #[error("无效的文件ID: {0}")]
     InvalidFileId(String),
-    
+
     #[error("路径生成错误: {0}")]
     PathGeneration(String),
-    
+
     #[error("未找到关联: 文件 {file_id_a} 和 {file_id_b}")]
-    LinkNotFound { file_id_a: String, file_id_b: String },
+    LinkNotFound {
+        file_id_a: String,
+        file_id_b: String,
+    },
 
     #[error("missing required field: {field}")]
     MissingField { field: String },

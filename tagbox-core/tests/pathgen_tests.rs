@@ -1,7 +1,7 @@
-use tagbox_core::{pathgen::PathGenerator, types::ImportMetadata, config::AppConfig};
-use tempfile::tempdir;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use tagbox_core::{config::AppConfig, pathgen::PathGenerator, types::ImportMetadata};
+use tempfile::tempdir;
 
 fn sample_metadata() -> ImportMetadata {
     ImportMetadata {

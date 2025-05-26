@@ -19,3 +19,44 @@ target/
 .sqlx/
 .cache/
 .vscode/
+
+# CI/CD artifacts
+.ci-reports/
+.ci-cache/
+
+# Compressed files (but not in test directories)
+*.tar
+*.tar.gz
+*.tar.xz
+*.tar.bz2
+*.zip
+*.7z
+*.rar
+!test/**/*.tar
+!test/**/*.tar.gz
+!test/**/*.tar.xz
+!test/**/*.tar.bz2
+!test/**/*.zip
+!test/**/*.7z
+!test/**/*.rar
+!tests/**/*.tar
+!tests/**/*.tar.gz
+!tests/**/*.tar.xz
+!tests/**/*.tar.bz2
+!tests/**/*.zip
+!tests/**/*.7z
+!tests/**/*.rar
+
+# Coverage reports
+coverage/
+*.profraw
+*.profdata
+tarpaulin-report.html
+cobertura.xml
+
+# Benchmark results
+benchmark-results.txt
+
+# OS specific files
+.DS_Store
+Thumbs.db

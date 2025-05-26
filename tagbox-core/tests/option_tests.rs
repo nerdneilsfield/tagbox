@@ -1,5 +1,5 @@
-use tagbox_core::utils::require_field;
 use tagbox_core::errors::TagboxError;
+use tagbox_core::utils::require_field;
 
 #[test]
 fn test_require_field_some() {

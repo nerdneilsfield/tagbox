@@ -1,8 +1,8 @@
-use tagbox_core::utils::*;
-use tempfile::tempdir;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
+use tagbox_core::utils::*;
+use tempfile::tempdir;
 
 #[tokio::test]
 async fn test_calculate_file_hash() {

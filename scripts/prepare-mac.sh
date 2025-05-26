@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
 ## fetch dependencies
-rustup component add rustfmt
-rustup component add clippy
+rustup component add rustfmt clippy
 if ! command -v cargo-binstall &> /dev/null; then
     cargo install cargo-binstall
 fi
@@ -14,7 +13,7 @@ export RUSTC_WRAPPER=$(which sccache)   # 告诉 Cargo 用 sccache
 export SCCACHE_DIR="$HOME/.cache/sccache"
 export SCCACHE_CACHE_SIZE="5G"
 #export CARGO_INCREMENTAL=1             # 只对 debug 有效 和 sccache 冲突了
-export RUSTFLAGS="-C link-arg=-fuse-ld=mold -C debuginfo=1"
+export RUSTFLAGS="-C debuginfo=1"
 
 
 # 提前获得依赖
