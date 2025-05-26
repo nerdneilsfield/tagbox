@@ -16,6 +16,8 @@ fn sample_metadata() -> ImportMetadata {
         tags: vec![],
         summary: None,
         additional_info: HashMap::new(),
+        file_metadata: None,
+        type_metadata: None,
     }
 }
 

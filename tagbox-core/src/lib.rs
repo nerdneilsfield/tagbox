@@ -4,7 +4,7 @@ mod editor;
 pub mod errors;
 mod importer;
 mod link;
-mod metainfo;
+pub mod metainfo;
 pub mod pathgen;
 mod schema;
 mod search;

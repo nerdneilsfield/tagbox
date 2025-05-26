@@ -58,6 +58,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             updated_at TEXT NOT NULL,
             is_deleted INTEGER NOT NULL DEFAULT 0, -- 对应 BOOLEAN
             deleted_at TEXT,     -- 来自 database.md
+            file_metadata TEXT,  -- 文件特定元数据 (JSON)
+            type_metadata TEXT,  -- 内容类型元数据 (JSON)
             FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
         );
     ",
@@ -257,6 +259,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &db,
         "CREATE INDEX IF NOT EXISTS idx_authors_name ON authors(name);",
         "Create index idx_authors_name",
+    )
+    .await?;
+    // JSON 索引 (SQLite 3.38.0+)
+    execute_sql(
+        &db,
+        "CREATE INDEX IF NOT EXISTS idx_files_file_metadata ON files(file_metadata);",
+        "Create index idx_files_file_metadata",
+    )
+    .await?;
+    execute_sql(
+        &db,
+        "CREATE INDEX IF NOT EXISTS idx_files_type_metadata ON files(type_metadata);",
+        "Create index idx_files_type_metadata",
     )
     .await?;
     println!("Indexes created successfully.");

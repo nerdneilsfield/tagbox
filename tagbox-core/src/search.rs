@@ -481,6 +481,8 @@ impl Searcher {
                         .map(|dt| dt.with_timezone(&chrono::Utc))
                 }),
                 is_deleted: row.get::<i64, _>("is_deleted") != 0,
+                file_metadata: None,  // TODO: 从数据库加载
+                type_metadata: None,  // TODO: 从数据库加载
             };
 
             entries.push(entry);

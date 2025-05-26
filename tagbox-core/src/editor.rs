@@ -368,6 +368,8 @@ impl Editor {
                 .unwrap_or_else(|_| Utc::now()),
             last_accessed: None,
             is_deleted: file_row.is_deleted != 0,
+            file_metadata: None,  // TODO: 从数据库加载
+            type_metadata: None,  // TODO: 从数据库加载
         })
     }
 }

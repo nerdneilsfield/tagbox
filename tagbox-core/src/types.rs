@@ -27,6 +27,8 @@ pub struct FileEntry {
     pub updated_at: DateTime<Utc>,
     pub last_accessed: Option<DateTime<Utc>>,
     pub is_deleted: bool,
+    pub file_metadata: Option<serde_json::Value>,
+    pub type_metadata: Option<serde_json::Value>,
 }
 
 /// 导入文件时的元数据信息
@@ -43,6 +45,8 @@ pub struct ImportMetadata {
     pub tags: Vec<String>,
     pub summary: Option<String>,
     pub additional_info: HashMap<String, String>,
+    pub file_metadata: Option<serde_json::Value>,
+    pub type_metadata: Option<serde_json::Value>,
 }
 
 /// 文件更新请求
@@ -59,6 +63,8 @@ pub struct FileUpdateRequest {
     pub tags: Option<Vec<String>>,
     pub summary: Option<String>,
     pub is_deleted: Option<bool>,
+    pub file_metadata: Option<serde_json::Value>,
+    pub type_metadata: Option<serde_json::Value>,
 }
 
 /// 搜索选项

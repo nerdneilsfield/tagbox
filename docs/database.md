@@ -24,6 +24,8 @@ erDiagram
     TEXT category_id FK
     DATETIME created_at
     BOOLEAN is_deleted
+    TEXT file_metadata
+    TEXT type_metadata
   }
 
   categories {
@@ -94,6 +96,8 @@ TagBox 的数据库旨在实现以下核心能力：
 | updated\_at    | DATETIME | 更新时间                 |
 | is\_deleted    | BOOLEAN  | 是否逻辑删除               |
 | deleted\_at    | DATETIME | 删除标记时间（可选）           |
+| file\_metadata | TEXT     | 文件特定元数据（JSON 格式）      |
+| type\_metadata | TEXT     | 内容类型元数据（JSON 格式）      |
 
 ### 2. tags 标签表
 
@@ -172,6 +176,17 @@ CREATE VIRTUAL TABLE file_search USING fts5(
 );
 ```
 
+### 9. file\_metadata 元数据表
+
+| 字段名        | 类型   | 说明                |
+| ---------- | ---- | ----------------- |
+| file\_id   | TEXT | 外键，指向 files     |
+| key        | TEXT | 元数据键名           |
+| value      | TEXT | 元数据值            |
+| **主键**     |      | (file\_id, key)   |
+
+> 注：在混合方案中，此表作为备选。优先使用 files 表中的 JSON 字段存储元数据。
+
 ## 四、扩展功能表（未来）
 
 ### 10. file\_access\_log 文件访问日志（可选）
@@ -192,6 +207,9 @@ CREATE INDEX idx_files_year ON files(year);
 CREATE INDEX idx_files_hash ON files(current_hash);
 CREATE INDEX idx_tags_path ON tags(path);
 CREATE INDEX idx_authors_name ON authors(name);
+-- JSON 索引（SQLite 3.38.0+）
+CREATE INDEX idx_files_file_metadata ON files(file_metadata);
+CREATE INDEX idx_files_type_metadata ON files(type_metadata);
 ```
 
 ### 外键约束策略
@@ -201,10 +219,69 @@ CREATE INDEX idx_authors_name ON authors(name);
 * file\_tags → tags.id：`ON DELETE CASCADE`
 * file\_links → files.id：`ON DELETE CASCADE`
 
-## 六、实践建议
+## 六、元数据存储策略
+
+### JSON 元数据字段说明
+
+1. **file\_metadata** - 文件格式特定的技术元数据
+   ```json
+   {
+     "pdf": {
+       "pages": 450,
+       "version": "1.7",
+       "producer": "LaTeX",
+       "has_ocr": true
+     },
+     "image": {
+       "width": 1920,
+       "height": 1080,
+       "format": "PNG",
+       "dpi": 300
+     }
+   }
+   ```
+
+2. **type\_metadata** - 内容类型特定的业务元数据
+   ```json
+   {
+     "book": {
+       "isbn": "978-xxx",
+       "edition": "3rd",
+       "series": "Head First",
+       "language": "en"
+     },
+     "paper": {
+       "doi": "10.1234/xxx",
+       "journal": "Nature",
+       "peer_reviewed": true,
+       "citations": 42
+     }
+   }
+   ```
+
+### 查询示例
+
+```sql
+-- 查找所有 PDF 书籍
+SELECT * FROM files 
+WHERE file_metadata->>'$.pdf' IS NOT NULL 
+  AND type_metadata->>'$.book' IS NOT NULL;
+
+-- 查找特定 ISBN
+SELECT * FROM files 
+WHERE type_metadata->>'$.book.isbn' = '978-xxx';
+
+-- 查找高分辨率图片
+SELECT * FROM files 
+WHERE CAST(file_metadata->>'$.image.width' AS INTEGER) > 1920;
+```
+
+## 七、实践建议
 
 * 建议所有表使用 UTC 时间
 * 所有主表建议添加 created\_at / updated\_at 字段
 * FTS5 虚拟表同步更新需手动维护（建议通过触发器或逻辑同步）
 * tag/category 支持逻辑删除字段 is\_deleted，避免误删
 * 搜索推荐使用 tag 前缀匹配（`path MATCH '技术/*'`）
+* JSON 字段建议创建合适的索引以提升查询性能
+* 通用元数据（如作者、年份）直接作为列存储，特殊元数据使用 JSON

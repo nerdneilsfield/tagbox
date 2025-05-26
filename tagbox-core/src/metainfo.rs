@@ -94,6 +94,8 @@ impl MetaInfoExtractor {
             tags: Vec::new(),
             summary: None,
             additional_info: HashMap::new(),
+            file_metadata: None,
+            type_metadata: None,
         };
 
         if parts.len() > 1 {
@@ -209,6 +211,8 @@ impl MetaInfoExtractor {
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
             additional_info: HashMap::new(),
+            file_metadata: None,
+            type_metadata: None,
         };
 
         // 处理额外信息
@@ -241,56 +245,171 @@ impl MetaInfoExtractor {
     }
 
     /// 从PDF文件中提取元数据
-    fn extract_from_pdf(&self, _file_path: &Path) -> Result<ImportMetadata> {
-        // 注意：这里需要依赖PDF解析库，例如lopdf
-        // 为简化实现，这里仅返回一个空的元数据结构
-        warn!("PDF元数据提取未实现");
-
-        Ok(ImportMetadata {
-            title: String::new(),
-            authors: Vec::new(),
-            year: None,
-            publisher: None,
-            source: None,
-            category1: String::new(),
-            category2: None,
-            category3: None,
-            tags: Vec::new(),
-            summary: None,
-            additional_info: HashMap::new(),
-        })
+    fn extract_from_pdf(&self, file_path: &Path) -> Result<ImportMetadata> {
+        let mut meta = self.extract_from_filename(file_path);
+        
+        // TODO: 实现完整的PDF元数据提取
+        // 当前pdf crate的API较复杂，暂时返回基本信息
+        warn!("PDF元数据提取功能暂未完全实现");
+        
+        // 构建基本的文件元数据
+        let file_metadata = serde_json::json!({
+            "pdf": {
+                "note": "Full PDF metadata extraction pending implementation"
+            }
+        });
+        
+        meta.file_metadata = Some(file_metadata);
+        
+        Ok(meta)
     }
 
     /// 从图片文件读取尺寸等信息
     fn extract_from_image(&self, file_path: &Path) -> Result<ImportMetadata> {
+        let mut meta = self.extract_from_filename(file_path);
+        
         match imageinfo::ImageInfo::from_file_path(file_path) {
             Ok(info) => {
-                let mut meta = self.extract_from_filename(file_path);
+                // 构建文件特定元数据
+                let file_metadata = serde_json::json!({
+                    "image": {
+                        "width": info.size.width,
+                        "height": info.size.height,
+                        "format": format!("{:?}", info.format),
+                        "mimetype": info.mimetype
+                    }
+                });
+                
+                meta.file_metadata = Some(file_metadata);
+                
+                // 在additional_info中也保留基本信息，方便查询
                 meta.additional_info
                     .insert("width".into(), info.size.width.to_string());
                 meta.additional_info
                     .insert("height".into(), info.size.height.to_string());
                 meta.additional_info
                     .insert("format".into(), format!("{:?}", info.format));
-                Ok(meta)
             }
             Err(e) => {
                 warn!("读取图片信息失败: {:?}", e);
-                Ok(self.extract_from_filename(file_path))
             }
         }
+        
+        Ok(meta)
     }
 
-    /// 简单解析EPUB元信息（仅文件名和部分标签）
+    /// 从EPUB文件提取完整元数据
     fn extract_from_epub(&self, file_path: &Path) -> Result<ImportMetadata> {
+        use epub::doc::EpubDoc;
+        
         let mut meta = self.extract_from_filename(file_path);
-        if let Ok(content) = fs::read_to_string(file_path) {
-            if let Some(start) = content.find("<dc:title>") {
-                if let Some(end) = content[start..].find("</dc:title>") {
-                    meta.title = content[start + 10..start + end].trim().to_string();
+        
+        // 尝试打开EPUB文件
+        match EpubDoc::new(file_path) {
+            Ok(mut doc) => {
+                // 提取基本元数据
+                if let Some(title) = doc.mdata("title") {
+                    meta.title = title;
                 }
+                
+                // 提取作者
+                if let Some(creator) = doc.mdata("creator") {
+                    meta.authors = vec![creator];
+                }
+                
+                // 提取出版商
+                if let Some(publisher) = doc.mdata("publisher") {
+                    meta.publisher = Some(publisher);
+                }
+                
+                // 提取出版日期
+                if let Some(date) = doc.mdata("date") {
+                    // 尝试解析年份
+                    if let Some(year_str) = date.split('-').next() {
+                        if let Ok(year) = year_str.parse::<i32>() {
+                            meta.year = Some(year);
+                        }
+                    }
+                }
+                
+                // 提取语言
+                if let Some(language) = doc.mdata("language") {
+                    meta.additional_info.insert("language".to_string(), language.clone());
+                }
+                
+                // 提取描述/摘要
+                if let Some(description) = doc.mdata("description") {
+                    meta.summary = Some(description);
+                }
+                
+                // 提取主题/标签
+                if let Some(subject) = doc.mdata("subject") {
+                    // 将主题转换为标签
+                    let subjects: Vec<String> = subject.split(';')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect();
+                    meta.tags.extend(subjects);
+                }
+                
+                // 提取标识符（ISBN等）
+                if let Some(identifier) = doc.mdata("identifier") {
+                    meta.additional_info.insert("identifier".to_string(), identifier.clone());
+                    // 如果是ISBN，特别标记
+                    if identifier.contains("ISBN") || identifier.contains("isbn") {
+                        meta.additional_info.insert("isbn".to_string(), identifier);
+                    }
+                }
+                
+                // 提取权利信息
+                if let Some(rights) = doc.mdata("rights") {
+                    meta.additional_info.insert("rights".to_string(), rights);
+                }
+                
+                // 提取贡献者
+                if let Some(contributor) = doc.mdata("contributor") {
+                    meta.additional_info.insert("contributor".to_string(), contributor);
+                }
+                
+                // 构建文件特定元数据
+                let has_cover = doc.get_cover().is_some();
+                let mut file_metadata = serde_json::json!({
+                    "epub": {
+                        "spine_count": doc.get_num_pages(),
+                        "has_cover": has_cover
+                    }
+                });
+                
+                // 如果能获取封面，保存封面信息
+                if let Some((cover_data, _mime)) = doc.get_cover() {
+                    file_metadata["epub"]["cover_size"] = serde_json::json!(cover_data.len());
+                }
+                
+                meta.file_metadata = Some(file_metadata);
+                
+                // 构建类型特定元数据（书籍）
+                let mut type_metadata = serde_json::json!({
+                    "book": {}
+                });
+                
+                // 添加ISBN到类型元数据
+                if let Some(isbn) = meta.additional_info.get("isbn") {
+                    type_metadata["book"]["isbn"] = serde_json::json!(isbn);
+                }
+                
+                // 添加语言到类型元数据
+                if let Some(language) = meta.additional_info.get("language") {
+                    type_metadata["book"]["language"] = serde_json::json!(language);
+                }
+                
+                meta.type_metadata = Some(type_metadata);
+            }
+            Err(e) => {
+                warn!("无法打开EPUB文件 {}: {:?}", file_path.display(), e);
+                // 返回基于文件名的基本元数据
             }
         }
+        
         Ok(meta)
     }
 
@@ -344,6 +463,8 @@ impl MetaInfoExtractor {
                 merged_info.extend(override_data.additional_info);
                 merged_info
             },
+            file_metadata: override_data.file_metadata.or(base.file_metadata),
+            type_metadata: override_data.type_metadata.or(base.type_metadata),
         }
     }
 }

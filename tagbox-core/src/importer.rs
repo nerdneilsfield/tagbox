@@ -120,6 +120,8 @@ impl Importer {
             updated_at: String,
             is_deleted: i64,
             deleted_at: Option<String>,
+            file_metadata: Option<String>,
+            type_metadata: Option<String>,
         }
 
         let maybe_row = sqlx::query_as!(
@@ -128,7 +130,8 @@ impl Importer {
             SELECT 
                 id as "id!", title as "title!", initial_hash, current_hash, 
                 relative_path, filename, year, publisher, category_id, source_url, summaries,
-                created_at as "created_at!", updated_at as "updated_at!", is_deleted, deleted_at
+                created_at as "created_at!", updated_at as "updated_at!", is_deleted, deleted_at,
+                file_metadata, type_metadata
             FROM files
             WHERE initial_hash = ?1 OR current_hash = ?1
             LIMIT 1
@@ -168,6 +171,10 @@ impl Importer {
                     .unwrap_or_else(|_| Utc::now()),
                 last_accessed: None,
                 is_deleted: db_row.is_deleted != 0,
+                file_metadata: db_row.file_metadata
+                    .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok()),
+                type_metadata: db_row.type_metadata
+                    .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok()),
             }))
         } else {
             Ok(None)
@@ -194,14 +201,21 @@ impl Importer {
             .to_string_lossy()
             .into_owned();
 
+        // 转换JSON元数据为字符串
+        let file_metadata_str = metadata.file_metadata.as_ref()
+            .map(|v| serde_json::to_string(v).unwrap_or_default());
+        let type_metadata_str = metadata.type_metadata.as_ref()
+            .map(|v| serde_json::to_string(v).unwrap_or_default());
+
         sqlx::query!(
             r#"
             INSERT INTO files (
                 id, title, initial_hash, current_hash, relative_path, filename,
                 year, publisher, category_id, source_url, summaries,
-                created_at, updated_at, is_deleted, deleted_at
+                created_at, updated_at, is_deleted, deleted_at,
+                file_metadata, type_metadata
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
             id,
             metadata.title,
@@ -217,7 +231,9 @@ impl Importer {
             now_str_rfc3339,
             now_str_rfc3339,
             0,
-            Option::<String>::None
+            Option::<String>::None,
+            file_metadata_str,
+            type_metadata_str
         )
         .execute(&self.db_pool)
         .await
@@ -262,6 +278,8 @@ impl Importer {
             updated_at: now_datetime,
             last_accessed: None,
             is_deleted: false,
+            file_metadata: metadata.file_metadata.clone(),
+            type_metadata: metadata.type_metadata.clone(),
         })
     }
 

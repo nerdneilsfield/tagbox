@@ -24,7 +24,8 @@ pest = { workspace = true }
 pest_derive = { workspace = true }
 regex = "1.9.5"
 lazy_static = "1.4.0"
-epub_metadata = "0.1.0"
+epub = "2.1"
+pdf = "0.9"
 imageinfo = "0.7.27"
 
 # Signal-FTS5 扩展依赖
