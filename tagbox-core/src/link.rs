@@ -47,7 +47,8 @@ impl LinkManager {
         .fetch_one(&self.db_pool)
         .await
         .map_err(|e| TagboxError::Database(e))?
-        .count > 0;
+        .count
+            > 0;
 
         if exists {
             debug!("关联已存在，更新关系类型");
@@ -159,7 +160,8 @@ impl LinkManager {
         .fetch_one(&self.db_pool)
         .await
         .map_err(|e| TagboxError::Database(e))?
-        .count > 0;
+        .count
+            > 0;
 
         if !file_a_exists {
             return Err(TagboxError::InvalidFileId(source_file_id.to_string()));
@@ -175,7 +177,8 @@ impl LinkManager {
         .fetch_one(&self.db_pool)
         .await
         .map_err(|e| TagboxError::Database(e))?
-        .count > 0;
+        .count
+            > 0;
 
         if !file_b_exists {
             return Err(TagboxError::InvalidFileId(target_file_id.to_string()));

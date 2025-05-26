@@ -41,7 +41,7 @@ pretty_assertions = { workspace = true }
 assert_fs = { workspace = true }
 # 模拟库
 mockall = { workspace = true }
-wiremock = { workspace = true }
+# wiremock = { workspace = true } # Disabled due to RUSTSEC-2024-0384
 # 数据库测试
 testcontainers = { workspace = true }
 # 文件系统测试

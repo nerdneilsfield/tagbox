@@ -21,7 +21,7 @@ use search::Searcher;
 use std::path::{Path, PathBuf};
 use types::{FileEntry, FileUpdateRequest, ImportMetadata, SearchOptions, SearchResult};
 
-/// 初始化数据库
+/// 初始化数据库 - Initialize database
 pub async fn init_database(path: &Path) -> Result<()> {
     let db = Database::new(path).await?;
     db.migrate().await?;

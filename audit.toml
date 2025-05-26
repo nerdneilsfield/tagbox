@@ -1,0 +1,18 @@
+[advisories]
+# Cargo Audit configuration
+# See: https://docs.rs/cargo-audit/latest/cargo_audit/config/
+
+# Known vulnerabilities that we cannot fix at this time
+vulnerability = "allow"
+
+[advisories.ignore]
+# RUSTSEC-2023-0071: RSA Marvin Attack vulnerability
+# This comes from sqlx-mysql which is pulled in despite us only using SQLite
+# The vulnerability only affects RSA usage which we don't use directly
+# Tracking issue: https://github.com/launchbadge/sqlx/issues/3211
+"RUSTSEC-2023-0071" = "2025-12-31"  # Review by end of 2025
+
+# RUSTSEC-2024-0384: instant crate is unmaintained
+# This comes from wiremock dev dependency which we've disabled
+# Keeping the ignore in case it appears in other dependencies
+# "RUSTSEC-2024-0384" = "2025-12-31"  # Disabled wiremock to fix this

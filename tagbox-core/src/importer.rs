@@ -171,9 +171,13 @@ impl Importer {
                     .unwrap_or_else(|_| Utc::now()),
                 last_accessed: None,
                 is_deleted: db_row.is_deleted != 0,
-                file_metadata: db_row.file_metadata.as_deref()
+                file_metadata: db_row
+                    .file_metadata
+                    .as_deref()
                     .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok()),
-                type_metadata: db_row.type_metadata.as_deref()
+                type_metadata: db_row
+                    .type_metadata
+                    .as_deref()
                     .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok()),
             }))
         } else {
@@ -202,9 +206,13 @@ impl Importer {
             .into_owned();
 
         // 转换JSON元数据为字符串
-        let file_metadata_str = metadata.file_metadata.as_ref()
+        let file_metadata_str = metadata
+            .file_metadata
+            .as_ref()
             .map(|v| serde_json::to_string(v).unwrap_or_default());
-        let type_metadata_str = metadata.type_metadata.as_ref()
+        let type_metadata_str = metadata
+            .type_metadata
+            .as_ref()
             .map(|v| serde_json::to_string(v).unwrap_or_default());
 
         sqlx::query!(

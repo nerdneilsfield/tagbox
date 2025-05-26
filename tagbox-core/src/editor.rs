@@ -106,9 +106,11 @@ impl Editor {
             let mut arguments = SqliteArguments::default(); // Use default()
             for p_val in &params {
                 match p_val {
-                    QueryParam::String(s) => arguments.add(s)
+                    QueryParam::String(s) => arguments
+                        .add(s)
                         .map_err(|e| TagboxError::Database(sqlx::Error::Encode(e)))?,
-                    QueryParam::Int(i) => arguments.add(i)
+                    QueryParam::Int(i) => arguments
+                        .add(i)
                         .map_err(|e| TagboxError::Database(sqlx::Error::Encode(e)))?,
                     // QueryParam::Float variant does not exist
                     // QueryParam::Float(f) => arguments.add(f),
@@ -116,7 +118,8 @@ impl Editor {
                     // QueryParam::Bool(b) => arguments.add(b),
                 }
             }
-            arguments.add(file_id)
+            arguments
+                .add(file_id)
                 .map_err(|e| TagboxError::Database(sqlx::Error::Encode(e)))?; // Add file_id for the WHERE clause
 
             sqlx::query_with(&sql_stmt, arguments)
@@ -371,8 +374,8 @@ impl Editor {
                 .unwrap_or_else(|_| Utc::now()),
             last_accessed: None,
             is_deleted: file_row.is_deleted != 0,
-            file_metadata: None,  // TODO: 从数据库加载
-            type_metadata: None,  // TODO: 从数据库加载
+            file_metadata: None, // TODO: 从数据库加载
+            type_metadata: None, // TODO: 从数据库加载
         })
     }
 }

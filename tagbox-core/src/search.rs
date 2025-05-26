@@ -2,9 +2,7 @@ use crate::config::AppConfig;
 use crate::errors::{Result, TagboxError};
 use crate::types::{FileEntry, SearchOptions, SearchResult};
 use crate::utils::require_field;
-use sqlx::{
-    sqlite::SqliteArguments, Arguments, Row, SqlitePool,
-};
+use sqlx::{sqlite::SqliteArguments, Arguments, Row, SqlitePool};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tracing::{debug, info, warn};
@@ -481,8 +479,8 @@ impl Searcher {
                         .map(|dt| dt.with_timezone(&chrono::Utc))
                 }),
                 is_deleted: row.get::<i64, _>("is_deleted") != 0,
-                file_metadata: None,  // TODO: 从数据库加载
-                type_metadata: None,  // TODO: 从数据库加载
+                file_metadata: None, // TODO: 从数据库加载
+                type_metadata: None, // TODO: 从数据库加载
             };
 
             entries.push(entry);

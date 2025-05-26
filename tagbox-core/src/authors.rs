@@ -173,7 +173,8 @@ impl AuthorManager {
         .fetch_one(&self.db_pool)
         .await
         .map_err(|e| TagboxError::Database(e))?
-        .count > 0;
+        .count
+            > 0;
 
         let target_exists = sqlx::query!(
             r#"SELECT COUNT(*) as count FROM authors WHERE id = ?"#,
@@ -182,7 +183,8 @@ impl AuthorManager {
         .fetch_one(&self.db_pool)
         .await
         .map_err(|e| TagboxError::Database(e))?
-        .count > 0;
+        .count
+            > 0;
 
         if !source_exists || !target_exists {
             return Err(TagboxError::Config("源作者或目标作者不存在".to_string()));
