@@ -31,6 +31,7 @@ setup:
     @echo "Development environment setup complete!"
 
 # Initialize database
+[unix]
 init-db:
     mkdir -p .sqlx-data
     rm -f .sqlx-data/tagbox.db
@@ -39,50 +40,74 @@ init-db:
     cd tagbox-core && DATABASE_URL={{database_path}} cargo sqlx prepare -- --lib
     @echo "Database initialized successfully!"
 
-# Build all packages or specific package
+[windows]
+init-db:
+    if not exist .sqlx-data mkdir .sqlx-data
+    if exist .sqlx-data\tagbox.db del .sqlx-data\tagbox.db
+    type nul > .sqlx-data\tagbox.db
+    set DATABASE_URL={{database_path}} && cargo run --bin tagbox-init-db
+    cd tagbox-core && set DATABASE_URL={{database_path}} && cargo sqlx prepare -- --lib
+    @echo "Database initialized successfully!"
+
+# Build all packages
+build-all:
+    cargo build --all
+
+# Build specific package
+build-package package:
+    cargo build -p tagbox-{{package}}
+
+# Build command with package selection
 build package="all":
-    #!/usr/bin/env bash
-    if [ "{{package}}" = "all" ]; then
-        cargo build --all
-    else
-        cargo build -p tagbox-{{package}}
-    fi
+    @just build-{{package}}
 
-# Build in release mode
+# Build all packages in release mode
+build-all-release:
+    cargo build --all --release
+
+# Build specific package in release mode
+build-package-release package:
+    cargo build -p tagbox-{{package}} --release
+
+# Build release command with package selection  
 build-release package="all":
-    #!/usr/bin/env bash
-    if [ "{{package}}" = "all" ]; then
-        cargo build --all --release
-    else
-        cargo build -p tagbox-{{package}} --release
-    fi
+    @just build-{{package}}-release
 
-# Run tests for all packages or specific package
+# Test all packages
+test-all:
+    DATABASE_URL={{database_path}} cargo test --all
+
+# Test specific package
+test-package package:
+    DATABASE_URL={{database_path}} cargo test -p tagbox-{{package}}
+
+# Test command with package selection
 test package="all":
-    #!/usr/bin/env bash
-    if [ "{{package}}" = "all" ]; then
-        DATABASE_URL={{database_path}} cargo test --all
-    else
-        DATABASE_URL={{database_path}} cargo test -p tagbox-{{package}}
-    fi
+    @just test-{{package}}
 
-# Run tests with nextest (faster parallel execution)
+# Run tests with nextest for all packages
+test-all-nextest:
+    DATABASE_URL={{database_path}} cargo nextest run --all
+
+# Run tests with nextest for specific package
+test-package-nextest package:
+    DATABASE_URL={{database_path}} cargo nextest run -p tagbox-{{package}}
+
+# Run tests with nextest
 test-nextest package="all":
-    #!/usr/bin/env bash
-    if [ "{{package}}" = "all" ]; then
-        DATABASE_URL={{database_path}} cargo nextest run --all
-    else
-        DATABASE_URL={{database_path}} cargo nextest run -p tagbox-{{package}}
-    fi
+    @just test-{{package}}-nextest
+
+# Run tests with coverage for all packages
+test-all-coverage:
+    DATABASE_URL={{database_path}} cargo tarpaulin --all --out Html
+
+# Run tests with coverage for specific package
+test-package-coverage package:
+    DATABASE_URL={{database_path}} cargo tarpaulin -p tagbox-{{package}} --out Html
 
 # Run tests with coverage
 test-coverage package="all":
-    #!/usr/bin/env bash
-    if [ "{{package}}" = "all" ]; then
-        DATABASE_URL={{database_path}} cargo tarpaulin --all --out Html
-    else
-        DATABASE_URL={{database_path}} cargo tarpaulin -p tagbox-{{package}} --out Html
-    fi
+    @just test-{{package}}-coverage
 
 # Run specific binary
 run binary *args:
@@ -126,55 +151,82 @@ clean:
     rm -rf target/
 
 # Deep clean including dependencies and database
+[unix]
 clean-all: clean
     rm -rf .sqlx-data/
     rm -rf Cargo.lock
     @echo "Deep clean complete!"
 
+[windows]
+clean-all: clean
+    if exist .sqlx-data rmdir /s /q .sqlx-data
+    if exist Cargo.lock del Cargo.lock
+    @echo "Deep clean complete!"
+
+# Run benchmarks for all packages
+bench-all:
+    cargo bench --all
+
+# Run benchmarks for specific package
+bench-package package:
+    cargo bench -p tagbox-{{package}}
+
 # Run benchmarks
 bench package="all":
-    #!/usr/bin/env bash
-    if [ "{{package}}" = "all" ]; then
-        cargo bench --all
-    else
-        cargo bench -p tagbox-{{package}}
-    fi
+    @just bench-{{package}}
 
-# Watch and rebuild on changes (requires cargo-watch)
+# Watch and rebuild all packages
+watch-all:
+    cargo watch -x "build --all"
+
+# Watch and rebuild specific package
+watch-package package:
+    cargo watch -x "build -p tagbox-{{package}}"
+
+# Watch and rebuild
 watch package="all":
-    #!/usr/bin/env bash
-    if [ "{{package}}" = "all" ]; then
-        cargo watch -x "build --all"
-    else
-        cargo watch -x "build -p tagbox-{{package}}"
-    fi
+    @just watch-{{package}}
 
 # Update dependencies
 update:
     cargo update
     @echo "Dependencies updated!"
 
+# Show dependency tree for all packages
+deps-all:
+    cargo tree
+
+# Show dependency tree for specific package
+deps-package package:
+    cargo tree -p tagbox-{{package}}
+
 # Show dependency tree
 deps package="all":
-    #!/usr/bin/env bash
-    if [ "{{package}}" = "all" ]; then
-        cargo tree
-    else
-        cargo tree -p tagbox-{{package}}
-    fi
+    @just deps-{{package}}
+
+# Generate documentation for all packages
+doc-all:
+    cargo doc --all --no-deps
+
+# Generate documentation for specific package
+doc-package package:
+    cargo doc -p tagbox-{{package}} --no-deps
 
 # Generate documentation
-doc package="all" open="":
-    #!/usr/bin/env bash
-    if [ "{{package}}" = "all" ]; then
-        cargo doc --all --no-deps {{open}}
-    else
-        cargo doc -p tagbox-{{package}} --no-deps {{open}}
-    fi
+doc package="all":
+    @just doc-{{package}}
+
+# Generate and open documentation for all packages
+doc-open-all:
+    cargo doc --all --no-deps --open
+
+# Generate and open documentation for specific package
+doc-open-package package:
+    cargo doc -p tagbox-{{package}} --no-deps --open
 
 # Generate and open documentation
 doc-open package="all":
-    just doc {{package}} --open
+    @just doc-open-{{package}}
 
 # Run CI pipeline locally
 ci: check test-nextest
@@ -191,6 +243,7 @@ uninstall-cli:
     @echo "TagBox CLI uninstalled!"
 
 # Show environment info
+[unix]
 info:
     @echo "Rust version:"
     @rustc --version
@@ -204,23 +257,31 @@ info:
     @echo "Installed packages:"
     @ls -1 tagbox-*/Cargo.toml | sed 's/\/Cargo.toml//' | sed 's/tagbox-/  - /'
 
+[windows]
+info:
+    @echo "Rust version:"
+    @rustc --version
+    @echo ""
+    @echo "Cargo version:"
+    @cargo --version
+    @echo ""
+    @echo "Database URL: {{database_path}}"
+    @echo "Rust log level: {{rust_log}}"
+    @echo ""
+    @echo "Installed packages:"
+    @dir /b tagbox-*\Cargo.toml 2>nul | for /f "tokens=1 delims=\" %i in ('more') do @echo   - %i | powershell -c "$input -replace 'tagbox-',''"
+
 # Quick development build and test
-dev package="all": build test
+dev package="all": 
+    @just build {{package}}
+    @just test {{package}}
     @echo "Development build and test complete for {{package}}!"
 
 # Release workflow
 release: clean check test-nextest build-release
     @echo "Release build complete!"
 
-# Platform-specific commands
-[windows]
-init-db-windows:
-    if not exist .sqlx-data mkdir .sqlx-data
-    if exist .sqlx-data\tagbox.db del .sqlx-data\tagbox.db
-    type nul > .sqlx-data\tagbox.db
-    set DATABASE_URL={{database_path}} && cargo run --bin tagbox-init-db
-    cd tagbox-core && set DATABASE_URL={{database_path}} && cargo sqlx prepare -- --lib
-
+# Platform-specific dependency installation
 [linux]
 install-system-deps:
     sudo apt-get update
@@ -229,3 +290,8 @@ install-system-deps:
 [macos]
 install-system-deps:
     brew install pkg-config openssl
+
+[windows]
+install-system-deps:
+    @echo "Please ensure you have Visual Studio Build Tools installed"
+    @echo "Download from: https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022"
