@@ -6,6 +6,7 @@ authors = ["Qi Deng<dengqi935@gmail.com>"]
 description = "Core library for TagBox file management system"
 
 [dependencies]
+blake2 = { workspace = true }
 tokio = { workspace = true }
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "macros", "migrate", "chrono", "uuid"] }
 serde = { workspace = true }
@@ -25,9 +26,21 @@ regex = "1.9.5"
 lazy_static = "1.4.0"
 
 # Signal-FTS5 扩展依赖
-libsqlite3-sys = { version = "0.26", features = ["bundled"] }
-signal-tokenizer = { git = "https://github.com/signalapp/Signal-FTS5-Extension.git", branch = "main" }
+# libsqlite3-sys = { version = "0.26", features = ["bundled"] }
+# signal-tokenizer = { git = "https://github.com/signalapp/Signal-FTS5-Extension.git", branch = "main" }
 
 [dev-dependencies]
-tempfile = "3.8"
-tokio-test = "0.4"
+# 测试文件和临时目录
+tempfile = { workspace = true }
+tokio-test = { workspace = true }
+# 断言库
+pretty_assertions = { workspace = true }
+assert_fs = { workspace = true }
+# 模拟库
+mockall = { workspace = true }
+wiremock = { workspace = true }
+# 数据库测试
+testcontainers = { workspace = true }
+# 文件系统测试
+proptest = { workspace = true }
+proptest-derive = { workspace = true }

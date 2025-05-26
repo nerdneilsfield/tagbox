@@ -1,4 +1,5 @@
 use crate::errors::{Result, TagboxError};
+use blake2::{Blake2b512, Digest as Blake2Digest};
 use sha2::{Sha256, Digest};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -15,6 +16,46 @@ pub async fn calculate_file_hash(path: &Path) -> Result<String> {
     let result = hasher.finalize();
     
     Ok(format!("{:x}", result))
+}
+
+/// 计算文件的 Blake2b 哈希值
+pub async fn calculate_file_blake2b(path: &Path) -> Result<String> {
+    let file_content = fs::read(path)
+        .map_err(|e| TagboxError::Io(e))?;
+    
+    let mut hasher = Blake2b512::new();
+    hasher.update(&file_content);
+    let result = hasher.finalize();
+    
+    Ok(format!("{:x}", result))
+}
+
+/// 通用哈希计算函数，支持多种哈希算法
+pub async fn calculate_hash(path: &Path, hash_type: HashType) -> Result<String> {
+    let file_content = fs::read(path)
+        .map_err(|e| TagboxError::Io(e))?;
+    
+    match hash_type {
+        HashType::Sha256 => {
+            let mut hasher = Sha256::new();
+            hasher.update(&file_content);
+            let result = hasher.finalize();
+            Ok(format!("{:x}", result))
+        },
+        HashType::Blake2b => {
+            let mut hasher = Blake2b512::new();
+            hasher.update(&file_content);
+            let result = hasher.finalize();
+            Ok(format!("{:x}", result))
+        },
+    }
+}
+
+/// 支持的哈希算法类型
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HashType {
+    Sha256,
+    Blake2b,
 }
 
 /// 归一化路径（转换为绝对路径）

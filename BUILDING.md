@@ -1,5 +1,15 @@
 # BUILD NOTES
 
+## For Converage
+
+```bash
+rustup component add llvm-tools-preview
+cargo install grcov
+
+# 配置测试覆盖率收集
+export RUSTFLAGS="-Zinstrument-coverage"
+export LLVM_PROFILE_FILE="tagbox-%p-%m.profraw"
+```
 
 ## Prepare `sqlx`
 

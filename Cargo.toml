@@ -18,6 +18,7 @@ license = "MIT"
 repository = "https://github.com/nerdneilsfield/tagbox"
 
 [workspace.dependencies]
+blake2 = "0.10"
 tokio = { version = "1.33", features = ["full"] }
 sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "macros", "migrate", "chrono", "uuid"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -34,3 +35,15 @@ sha2 = "0.10"
 walkdir = "2.4"
 pest = "2.7"
 pest_derive = "2.7"
+
+# 开发依赖项应该在各个成员包的 Cargo.toml 中定义
+# 如果需要共享的测试依赖，可以添加到 [workspace.dependencies] 中
+tempfile = "3.8"            # 创建临时文件和目录
+tokio-test = "0.4"          # 异步测试支持
+pretty_assertions = "1.4"   # 美化断言输出
+assert_fs = "1.0"           # 文件系统断言
+mockall = "0.12"            # 创建模拟对象
+wiremock = "0.5"            # HTTP API 模拟
+testcontainers = "0.15"     # 容器化测试（如需要隔离环境）
+proptest = "1.3"            # 属性测试
+proptest-derive = "0.4"     # 派生宏用于属性测试

@@ -9,6 +9,7 @@ pub struct AppConfig {
     pub import: ImportConfig,
     pub search: SearchConfig,
     pub database: DatabaseConfig,
+    pub hash: HashConfig,
 }
 
 /// 导入相关配置
@@ -50,6 +51,17 @@ pub struct DatabaseConfig {
     pub sync_mode: String,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct HashConfig {
+    /// 使用的哈希算法: "sha256" 或 "blake2b"
+    #[serde(default = "default_hash_algorithm")]
+    pub algorithm: String,
+}
+
+fn default_hash_algorithm() -> String {
+    "blake2b".to_string()
+}
+
 impl Default for AppConfig {
     fn default() -> Self {
         AppConfig {
@@ -74,6 +86,9 @@ impl Default for AppConfig {
                 path: PathBuf::from("./tagbox_data/meta.db"),
                 journal_mode: "WAL".to_string(),
                 sync_mode: "NORMAL".to_string(),
+            },
+            hash: HashConfig {
+                algorithm: "blake2b".to_string(),
             },
         }
     }
