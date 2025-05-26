@@ -9,7 +9,7 @@ default:
     @just --list
 
 # Variables
-database_path := env_var_or_default("DATABASE_URL", "sqlite:${PWD}/.sqlx-data/tagbox.db")
+database_path := env_var_or_default("DATABASE_URL", "sqlite:.sqlx-data/tagbox.db")
 rust_log := env_var_or_default("RUST_LOG", "info")
 
 # Package names
@@ -45,8 +45,8 @@ init-db:
     if not exist .sqlx-data mkdir .sqlx-data
     if exist .sqlx-data\tagbox.db del .sqlx-data\tagbox.db
     type nul > .sqlx-data\tagbox.db
-    set DATABASE_URL={{database_path}} && cargo run --bin tagbox-init-db
-    cd tagbox-core && set DATABASE_URL={{database_path}} && cargo sqlx prepare -- --lib
+    $env:DATABASE_URL="{{database_path}}"; cargo run --bin tagbox-init-db
+    cd tagbox-core; $env:DATABASE_URL="{{database_path}}"; cargo sqlx prepare -- --lib
     @echo "Database initialized successfully!"
 
 # Build all packages
@@ -58,8 +58,18 @@ build-package package:
     cargo build -p tagbox-{{package}}
 
 # Build command with package selection
+[unix]
 build package="all":
-    @just build-{{package}}
+    #!/usr/bin/env sh
+    if [ "{{package}}" = "all" ]; then
+        just build-all
+    else
+        just build-package {{package}}
+    fi
+
+[windows]
+build package="all":
+    @if "{{package}}" == "all" (just build-all) else (just build-package {{package}})
 
 # Build all packages in release mode
 build-all-release:
@@ -69,61 +79,151 @@ build-all-release:
 build-package-release package:
     cargo build -p tagbox-{{package}} --release
 
-# Build release command with package selection  
+# Build release command with package selection
+[unix]
 build-release package="all":
-    @just build-{{package}}-release
+    #!/usr/bin/env sh
+    if [ "{{package}}" = "all" ]; then
+        just build-all-release
+    else
+        just build-package-release {{package}}
+    fi
+
+[windows]
+build-release package="all":
+    @if "{{package}}" == "all" (just build-all-release) else (just build-package-release {{package}})
 
 # Test all packages
+[unix]
 test-all:
     DATABASE_URL={{database_path}} cargo test --all
 
+[windows]
+test-all:
+    $env:DATABASE_URL="{{database_path}}"; cargo test --all
+
 # Test specific package
+[unix]
 test-package package:
     DATABASE_URL={{database_path}} cargo test -p tagbox-{{package}}
 
+[windows]
+test-package package:
+    $env:DATABASE_URL="{{database_path}}"; cargo test -p tagbox-{{package}}
+
 # Test command with package selection
+[unix]
 test package="all":
-    @just test-{{package}}
+    #!/usr/bin/env sh
+    if [ "{{package}}" = "all" ]; then
+        just test-all
+    else
+        just test-package {{package}}
+    fi
+
+[windows]
+test package="all":
+    @if "{{package}}" == "all" (just test-all) else (just test-package {{package}})
 
 # Run tests with nextest for all packages
+[unix]
 test-all-nextest:
     DATABASE_URL={{database_path}} cargo nextest run --all
 
+[windows]
+test-all-nextest:
+    $env:DATABASE_URL="{{database_path}}"; cargo nextest run --all
+
 # Run tests with nextest for specific package
+[unix]
 test-package-nextest package:
     DATABASE_URL={{database_path}} cargo nextest run -p tagbox-{{package}}
 
+[windows]
+test-package-nextest package:
+    $env:DATABASE_URL="{{database_path}}"; cargo nextest run -p tagbox-{{package}}
+
 # Run tests with nextest
+[unix]
 test-nextest package="all":
-    @just test-{{package}}-nextest
+    #!/usr/bin/env sh
+    if [ "{{package}}" = "all" ]; then
+        just test-all-nextest
+    else
+        just test-package-nextest {{package}}
+    fi
+
+[windows]
+test-nextest package="all":
+    @if "{{package}}" == "all" (just test-all-nextest) else (just test-package-nextest {{package}})
 
 # Run tests with coverage for all packages
+[unix]
 test-all-coverage:
     DATABASE_URL={{database_path}} cargo tarpaulin --all --out Html
 
+[windows]
+test-all-coverage:
+    $env:DATABASE_URL="{{database_path}}"; cargo tarpaulin --all --out Html
+
 # Run tests with coverage for specific package
+[unix]
 test-package-coverage package:
     DATABASE_URL={{database_path}} cargo tarpaulin -p tagbox-{{package}} --out Html
 
+[windows]
+test-package-coverage package:
+    $env:DATABASE_URL="{{database_path}}"; cargo tarpaulin -p tagbox-{{package}} --out Html
+
 # Run tests with coverage
+[unix]
 test-coverage package="all":
-    @just test-{{package}}-coverage
+    #!/usr/bin/env sh
+    if [ "{{package}}" = "all" ]; then
+        just test-all-coverage
+    else
+        just test-package-coverage {{package}}
+    fi
+
+[windows]
+test-coverage package="all":
+    @if "{{package}}" == "all" (just test-all-coverage) else (just test-package-coverage {{package}})
 
 # Run specific binary
+[unix]
 run binary *args:
     DATABASE_URL={{database_path}} RUST_LOG={{rust_log}} cargo run --bin {{binary}} -- {{args}}
 
+[windows]
+run binary *args:
+    $env:DATABASE_URL="{{database_path}}"; $env:RUST_LOG="{{rust_log}}"; cargo run --bin {{binary}} -- {{args}}
+
 # Run CLI with arguments
+[unix]
 run-cli *args:
     DATABASE_URL={{database_path}} RUST_LOG={{rust_log}} cargo run -p tagbox-cli -- {{args}}
 
+[windows]
+run-cli *args:
+    $env:DATABASE_URL="{{database_path}}"; $env:RUST_LOG="{{rust_log}}"; cargo run -p tagbox-cli -- {{args}}
+
 # Run GUI
+[unix]
 run-gui:
     DATABASE_URL={{database_path}} RUST_LOG={{rust_log}} cargo run -p tagbox-gui
 
+[windows]
+run-gui:
+    $env:DATABASE_URL="{{database_path}}"; $env:RUST_LOG="{{rust_log}}"; cargo run -p tagbox-gui
+
 # Run TUI
+[unix]
 run-tui:
     DATABASE_URL={{database_path}} RUST_LOG={{rust_log}} cargo run -p tagbox-tui
+
+[windows]
+run-tui:
+    $env:DATABASE_URL="{{database_path}}"; $env:RUST_LOG="{{rust_log}}"; cargo run -p tagbox-tui
 
 # Check code formatting
 fmt-check:
@@ -172,8 +272,18 @@ bench-package package:
     cargo bench -p tagbox-{{package}}
 
 # Run benchmarks
+[unix]
 bench package="all":
-    @just bench-{{package}}
+    #!/usr/bin/env sh
+    if [ "{{package}}" = "all" ]; then
+        just bench-all
+    else
+        just bench-package {{package}}
+    fi
+
+[windows]
+bench package="all":
+    @if "{{package}}" == "all" (just bench-all) else (just bench-package {{package}})
 
 # Watch and rebuild all packages
 watch-all:
@@ -184,8 +294,18 @@ watch-package package:
     cargo watch -x "build -p tagbox-{{package}}"
 
 # Watch and rebuild
+[unix]
 watch package="all":
-    @just watch-{{package}}
+    #!/usr/bin/env sh
+    if [ "{{package}}" = "all" ]; then
+        just watch-all
+    else
+        just watch-package {{package}}
+    fi
+
+[windows]
+watch package="all":
+    @if "{{package}}" == "all" (just watch-all) else (just watch-package {{package}})
 
 # Update dependencies
 update:
@@ -201,8 +321,18 @@ deps-package package:
     cargo tree -p tagbox-{{package}}
 
 # Show dependency tree
+[unix]
 deps package="all":
-    @just deps-{{package}}
+    #!/usr/bin/env sh
+    if [ "{{package}}" = "all" ]; then
+        just deps-all
+    else
+        just deps-package {{package}}
+    fi
+
+[windows]
+deps package="all":
+    @if "{{package}}" == "all" (just deps-all) else (just deps-package {{package}})
 
 # Generate documentation for all packages
 doc-all:
@@ -213,8 +343,18 @@ doc-package package:
     cargo doc -p tagbox-{{package}} --no-deps
 
 # Generate documentation
+[unix]
 doc package="all":
-    @just doc-{{package}}
+    #!/usr/bin/env sh
+    if [ "{{package}}" = "all" ]; then
+        just doc-all
+    else
+        just doc-package {{package}}
+    fi
+
+[windows]
+doc package="all":
+    @if "{{package}}" == "all" (just doc-all) else (just doc-package {{package}})
 
 # Generate and open documentation for all packages
 doc-open-all:
@@ -225,8 +365,18 @@ doc-open-package package:
     cargo doc -p tagbox-{{package}} --no-deps --open
 
 # Generate and open documentation
+[unix]
 doc-open package="all":
-    @just doc-open-{{package}}
+    #!/usr/bin/env sh
+    if [ "{{package}}" = "all" ]; then
+        just doc-open-all
+    else
+        just doc-open-package {{package}}
+    fi
+
+[windows]
+doc-open package="all":
+    @if "{{package}}" == "all" (just doc-open-all) else (just doc-open-package {{package}})
 
 # Run CI pipeline locally
 ci: check test-nextest
@@ -272,9 +422,21 @@ info:
     @dir /b tagbox-*\Cargo.toml 2>nul | for /f "tokens=1 delims=\" %i in ('more') do @echo   - %i | powershell -c "$input -replace 'tagbox-',''"
 
 # Quick development build and test
-dev package="all": 
-    @just build {{package}}
-    @just test {{package}}
+[unix]
+dev package="all":
+    #!/usr/bin/env sh
+    if [ "{{package}}" = "all" ]; then
+        just build-all
+        just test-all
+    else
+        just build-package {{package}}
+        just test-package {{package}}
+    fi
+    echo "Development build and test complete for {{package}}!"
+
+[windows]
+dev package="all":
+    @if "{{package}}" == "all" (just build-all && just test-all) else (just build-package {{package}} && just test-package {{package}})
     @echo "Development build and test complete for {{package}}!"
 
 # Release workflow
