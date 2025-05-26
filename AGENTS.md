@@ -134,6 +134,7 @@ See `.github/workflows/ci.yml` – all PRs must pass.
 ## 🧱 PR Rules
 
 * Title: `[core] fix: extract_hash into reusable util`
+* PR should only use English
 * PR must link to specific module or function if logic is modified
 * If modifying config or schema, update `config.toml` and ERD diagram
 * Include tests or clear reason why it's not needed
