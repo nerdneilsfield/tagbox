@@ -1,8 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use uuid::Uuid;
+use std::path::PathBuf;
 
 /// 文件实体，表示数据库中的一个已索引文件
 #[derive(Debug, Clone, Serialize, Deserialize)]

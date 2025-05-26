@@ -13,7 +13,7 @@ pub mod utils;
 
 use config::AppConfig;
 use editor::Editor;
-use errors::{Result, TagboxError};
+use errors::Result;
 use importer::Importer;
 use link::LinkManager;
 use schema::Database;
@@ -36,7 +36,7 @@ pub async fn load_config(path: &Path) -> Result<AppConfig> {
 /// 从文件中提取元数据信息
 pub async fn extract_metainfo(path: &Path, config: &AppConfig) -> Result<ImportMetadata> {
     let db = Database::new(&config.database.path).await?;
-    let importer = Importer::new(config.clone(), db.pool().clone());
+    let _importer = Importer::new(config.clone(), db.pool().clone());
 
     let metainfo = metainfo::MetaInfoExtractor::new(config.clone());
     metainfo.extract(path).await
@@ -45,7 +45,7 @@ pub async fn extract_metainfo(path: &Path, config: &AppConfig) -> Result<ImportM
 /// 导入文件到库中
 pub async fn import_file(
     path: &Path,
-    metadata: ImportMetadata,
+    _metadata: ImportMetadata,
     config: &AppConfig,
 ) -> Result<FileEntry> {
     let db = Database::new(&config.database.path).await?;

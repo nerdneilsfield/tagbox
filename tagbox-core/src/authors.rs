@@ -3,7 +3,7 @@ use crate::types::Author;
 use crate::utils::{current_time, generate_uuid, require_field};
 use sqlx::SqlitePool;
 use std::collections::HashMap;
-use tracing::{debug, info};
+use tracing::info;
 
 /// 作者管理器
 pub struct AuthorManager {
@@ -167,22 +167,22 @@ impl AuthorManager {
     pub async fn merge_authors(&self, source_id: &str, target_id: &str) -> Result<()> {
         // 检查两个作者是否都存在
         let source_exists = sqlx::query!(
-            r#"SELECT 1 as exists_flag FROM authors WHERE id = ?"#,
+            r#"SELECT COUNT(*) as count FROM authors WHERE id = ?"#,
             source_id
         )
-        .fetch_optional(&self.db_pool)
+        .fetch_one(&self.db_pool)
         .await
         .map_err(|e| TagboxError::Database(e))?
-        .is_some();
+        .count > 0;
 
         let target_exists = sqlx::query!(
-            r#"SELECT 1 as exists_flag FROM authors WHERE id = ?"#,
+            r#"SELECT COUNT(*) as count FROM authors WHERE id = ?"#,
             target_id
         )
-        .fetch_optional(&self.db_pool)
+        .fetch_one(&self.db_pool)
         .await
         .map_err(|e| TagboxError::Database(e))?
-        .is_some();
+        .count > 0;
 
         if !source_exists || !target_exists {
             return Err(TagboxError::Config("源作者或目标作者不存在".to_string()));
@@ -262,7 +262,7 @@ impl AuthorManager {
     }
 
     /// 获取作者元数据
-    async fn get_author_metadata(&self, author_id: &str) -> Result<HashMap<String, String>> {
+    async fn get_author_metadata(&self, _author_id: &str) -> Result<HashMap<String, String>> {
         // 本实现中暂不存储作者元数据，返回空Map
         // 未来可以扩展实现
         Ok(HashMap::new())

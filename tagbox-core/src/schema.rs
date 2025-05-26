@@ -238,7 +238,7 @@ impl Database {
                         warn!("无法创建标准FTS5表，尝试使用FTS4: {}", e2);
 
                         // 尝试创建基本的FTS4表（更广泛支持）
-                        let create_fts4_result = sqlx::query(
+                        let _create_fts4_result = sqlx::query(
                             r#"
                             CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts4(
                                 title, 

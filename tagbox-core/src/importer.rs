@@ -119,7 +119,7 @@ impl Importer {
             created_at: String,
             updated_at: String,
             is_deleted: i64,
-            deleted_at: Option<String>,
+            _deleted_at: Option<String>,
             file_metadata: Option<String>,
             type_metadata: Option<String>,
         }
@@ -130,7 +130,7 @@ impl Importer {
             SELECT 
                 id as "id!", title as "title!", initial_hash, current_hash, 
                 relative_path, filename, year, publisher, category_id, source_url, summaries,
-                created_at as "created_at!", updated_at as "updated_at!", is_deleted, deleted_at,
+                created_at as "created_at!", updated_at as "updated_at!", is_deleted, deleted_at as "_deleted_at",
                 file_metadata, type_metadata
             FROM files
             WHERE initial_hash = ?1 OR current_hash = ?1
@@ -171,10 +171,10 @@ impl Importer {
                     .unwrap_or_else(|_| Utc::now()),
                 last_accessed: None,
                 is_deleted: db_row.is_deleted != 0,
-                file_metadata: db_row.file_metadata
-                    .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok()),
-                type_metadata: db_row.type_metadata
-                    .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok()),
+                file_metadata: db_row.file_metadata.as_deref()
+                    .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok()),
+                type_metadata: db_row.type_metadata.as_deref()
+                    .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok()),
             }))
         } else {
             Ok(None)

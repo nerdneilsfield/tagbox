@@ -106,15 +106,18 @@ impl Editor {
             let mut arguments = SqliteArguments::default(); // Use default()
             for p_val in &params {
                 match p_val {
-                    QueryParam::String(s) => arguments.add(s),
-                    QueryParam::Int(i) => arguments.add(i),
+                    QueryParam::String(s) => arguments.add(s)
+                        .map_err(|e| TagboxError::Database(sqlx::Error::Encode(e)))?,
+                    QueryParam::Int(i) => arguments.add(i)
+                        .map_err(|e| TagboxError::Database(sqlx::Error::Encode(e)))?,
                     // QueryParam::Float variant does not exist
                     // QueryParam::Float(f) => arguments.add(f),
                     // QueryParam::Bool variant does not exist
                     // QueryParam::Bool(b) => arguments.add(b),
                 }
             }
-            arguments.add(file_id); // Add file_id for the WHERE clause
+            arguments.add(file_id)
+                .map_err(|e| TagboxError::Database(sqlx::Error::Encode(e)))?; // Add file_id for the WHERE clause
 
             sqlx::query_with(&sql_stmt, arguments)
                 .execute(&self.db_pool)

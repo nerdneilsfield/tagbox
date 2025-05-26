@@ -1,5 +1,5 @@
 use crate::config::AppConfig;
-use crate::errors::{Result, TagboxError};
+use crate::errors::Result;
 use crate::types::ImportMetadata;
 use lazy_static::lazy_static;
 use regex::Regex;

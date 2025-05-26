@@ -1,9 +1,9 @@
 use crate::config::AppConfig;
 use crate::errors::{Result, TagboxError};
-use crate::types::{FileEntry, QueryParam, SearchOptions, SearchResult};
+use crate::types::{FileEntry, SearchOptions, SearchResult};
 use crate::utils::require_field;
 use sqlx::{
-    query::Query, sqlite::SqliteArguments, sqlite::SqlitePoolOptions, Arguments, Row, SqlitePool,
+    sqlite::SqliteArguments, Arguments, Row, SqlitePool,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -419,7 +419,7 @@ impl Searcher {
 
         let mut count_args = SqliteArguments::default(); // Use default() to initialize
         for p_val in params.iter().take(count_sql.matches('?').count()) {
-            count_args.add(p_val);
+            let _ = count_args.add(p_val);
         }
         let total_count: i64 = sqlx::query_scalar_with(&count_sql, count_args)
             .fetch_one(&self.db_pool)
@@ -428,7 +428,7 @@ impl Searcher {
 
         let mut main_args = SqliteArguments::default(); // Use default() to initialize
         for p_val in &params {
-            main_args.add(p_val);
+            let _ = main_args.add(p_val);
         }
         let rows = sqlx::query_with(&sql, main_args)
             .fetch_all(&self.db_pool)

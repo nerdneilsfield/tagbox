@@ -1,7 +1,7 @@
 use crate::errors::{Result, TagboxError};
 use blake2::{Blake2b512, Digest as Blake2Digest};
 use chrono::{DateTime, Utc};
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 use std::fs;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;

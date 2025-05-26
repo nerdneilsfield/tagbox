@@ -22,11 +22,11 @@ sha2 = { workspace = true }
 walkdir = { workspace = true }
 pest = { workspace = true }
 pest_derive = { workspace = true }
-regex = "1.9.5"
-lazy_static = "1.4.0"
+regex = "1.11"
+lazy_static = "1.5"
 epub = "2.1"
 pdf = "0.9"
-imageinfo = "0.7.27"
+imageinfo = "0.7"
 
 # Signal-FTS5 扩展依赖
 # libsqlite3-sys = { version = "0.26", features = ["bundled"] }

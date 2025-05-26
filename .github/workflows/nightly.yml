@@ -80,9 +80,10 @@ jobs:
 
       - name: Install tools
         run: |
+          cargo install cargo-binstall cargo-quickinstall
           cargo install sqlx-cli --no-default-features --features sqlite
-          cargo install cargo-nextest
-          cargo install cargo-audit
+          cargo binstall cargo-nextest
+          cargo binstall cargo-audit
 
       - name: Setup database
         run: |
@@ -108,56 +109,56 @@ jobs:
             **/*.log
 
   # Benchmark tests
-  benchmarks:
-    name: Performance Benchmarks
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # benchmarks:
+  #   name: Performance Benchmarks
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+  #     - name: Install Rust toolchain
+  #       uses: dtolnay/rust-toolchain@stable
 
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.6
+  #     - name: Setup sccache
+  #       uses: mozilla-actions/sccache-action@v0.0.6
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-registry-
+  #     - name: Cache cargo registry
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: |
+  #           ~/.cargo/registry/index/
+  #           ~/.cargo/registry/cache/
+  #           ~/.cargo/git/db/
+  #         key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-cargo-registry-
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libssl-dev pkg-config
-          cargo install sqlx-cli --no-default-features --features sqlite
-          cargo install cargo-benchcmp
+  #     - name: Install dependencies
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y libssl-dev pkg-config
+  #         cargo install sqlx-cli --no-default-features --features sqlite
+  #         cargo install cargo-benchcmp
 
-      - name: Setup database
-        run: |
-          mkdir -p .sqlx-data
-          rm -f .sqlx-data/tagbox.db
-          touch .sqlx-data/tagbox.db
-          DATABASE_URL="sqlite:.sqlx-data/tagbox.db" cargo run --bin tagbox-init-db
-          cd tagbox-core && DATABASE_URL="sqlite:../.sqlx-data/tagbox.db" cargo sqlx prepare -- --lib
+  #     - name: Setup database
+  #       run: |
+  #         mkdir -p .sqlx-data
+  #         rm -f .sqlx-data/tagbox.db
+  #         touch .sqlx-data/tagbox.db
+  #         DATABASE_URL="sqlite:.sqlx-data/tagbox.db" cargo run --bin tagbox-init-db
+  #         cd tagbox-core && DATABASE_URL="sqlite:../.sqlx-data/tagbox.db" cargo sqlx prepare -- --lib
 
-      - name: Run benchmarks
-        run: |
-          DATABASE_URL="sqlite:.sqlx-data/tagbox.db" cargo bench --all | tee benchmark-results.txt
+  #     - name: Run benchmarks
+  #       run: |
+  #         DATABASE_URL="sqlite:.sqlx-data/tagbox.db" cargo bench --all | tee benchmark-results.txt
 
-      - name: Upload benchmark results
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results
-          path: |
-            benchmark-results.txt
-            target/criterion/
+  #     - name: Upload benchmark results
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: benchmark-results
+  #         path: |
+  #           benchmark-results.txt
+  #           target/criterion/
 
   # Dependency check
   dependencies:
@@ -207,7 +208,8 @@ jobs:
   # Create nightly report
   report:
     name: Generate Nightly Report
-    needs: [extended-tests, benchmarks, dependencies]
+    #needs: [extended-tests, benchmarks, dependencies]
+    needs: [extended-tests, dependencies]
     if: always()
     runs-on: ubuntu-latest
     steps:

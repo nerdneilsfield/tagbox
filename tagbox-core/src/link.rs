@@ -35,7 +35,7 @@ impl LinkManager {
 
         let exists = sqlx::query!(
             r#"
-            SELECT 1 as exists_flag FROM file_links
+            SELECT COUNT(*) as count FROM file_links
             WHERE (source_id = ? AND target_id = ?)
             OR (source_id = ? AND target_id = ?)
             "#,
@@ -44,10 +44,10 @@ impl LinkManager {
             target_file_id,
             source_file_id
         )
-        .fetch_optional(&self.db_pool)
+        .fetch_one(&self.db_pool)
         .await
         .map_err(|e| TagboxError::Database(e))?
-        .is_some();
+        .count > 0;
 
         if exists {
             debug!("关联已存在，更新关系类型");
@@ -152,14 +152,14 @@ impl LinkManager {
         // 检查第一个文件
         let file_a_exists = sqlx::query!(
             r#"
-            SELECT 1 as exists_flag FROM files WHERE id = ?
+            SELECT COUNT(*) as count FROM files WHERE id = ?
             "#,
             source_file_id
         )
-        .fetch_optional(&self.db_pool)
+        .fetch_one(&self.db_pool)
         .await
         .map_err(|e| TagboxError::Database(e))?
-        .is_some();
+        .count > 0;
 
         if !file_a_exists {
             return Err(TagboxError::InvalidFileId(source_file_id.to_string()));
@@ -168,14 +168,14 @@ impl LinkManager {
         // 检查第二个文件
         let file_b_exists = sqlx::query!(
             r#"
-            SELECT 1 as exists_flag FROM files WHERE id = ?
+            SELECT COUNT(*) as count FROM files WHERE id = ?
             "#,
             target_file_id
         )
-        .fetch_optional(&self.db_pool)
+        .fetch_one(&self.db_pool)
         .await
         .map_err(|e| TagboxError::Database(e))?
-        .is_some();
+        .count > 0;
 
         if !file_b_exists {
             return Err(TagboxError::InvalidFileId(target_file_id.to_string()));
