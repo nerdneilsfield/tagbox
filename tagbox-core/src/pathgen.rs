@@ -8,7 +8,8 @@ use lazy_static::lazy_static;
 use tracing::debug;
 
 lazy_static! {
-    static ref TEMPLATE_VAR_RE: Regex = Regex::new(r"\{([a-zA-Z0-9_]+)\}").unwrap();
+    static ref TEMPLATE_VAR_RE: Regex = Regex::new(r"\{([a-zA-Z0-9_]+)\}")
+        .expect("failed to compile TEMPLATE_VAR_RE regex");
 }
 
 /// 路径生成器
