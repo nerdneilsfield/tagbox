@@ -3,7 +3,7 @@
 use sqlx::{SqlitePool, sqlite::SqliteArguments, Arguments};
 use crate::types::{FileUpdateRequest, QueryParam}; // Assuming FileUpdateRequest is in types.rs
 use crate::errors::{Result, TagboxError}; // Assuming Result and TagboxError are in errors.rs
-use crate::utils::current_time; // Assuming current_time is in utils.rs
+use crate::utils::{current_time, require_field}; // Assuming current_time is in utils.rs
 
 pub struct Editor {
     db_pool: SqlitePool,
@@ -287,7 +287,7 @@ impl Editor {
         .map_err(TagboxError::Database)?
         .ok_or_else(|| TagboxError::InvalidFileId(file_id.to_string()))?;
 
-        Ok(std::path::PathBuf::from(file_path.relative_path.unwrap_or_default()))
+        Ok(std::path::PathBuf::from(require_field(file_path.relative_path, "files.relative_path")?))
     }
 
     /// 获取文件信息
@@ -336,18 +336,18 @@ impl Editor {
         .collect();
 
         Ok(crate::types::FileEntry {
-            id: file_row.id.unwrap_or_default(),
+            id: require_field(file_row.id, "files.id")?,
             title: file_row.title,
             authors,
             year: file_row.year.map(|y| y as i32),
             publisher: file_row.publisher,
             source: file_row.source_url,
-            path: std::path::PathBuf::from(file_row.relative_path.unwrap_or_default()),
+            path: std::path::PathBuf::from(require_field(file_row.relative_path, "files.relative_path")?),
             original_path: None,
-            original_filename: file_row.filename.unwrap_or_default(),
-            hash: file_row.initial_hash.unwrap_or_default(),
+            original_filename: require_field(file_row.filename, "files.filename")?,
+            hash: require_field(file_row.initial_hash, "files.initial_hash")?,
             current_hash: file_row.current_hash,
-            category1: file_row.category_id.unwrap_or_default(),
+            category1: require_field(file_row.category_id, "files.category_id")?,
             category2: None,
             category3: None,
             tags,

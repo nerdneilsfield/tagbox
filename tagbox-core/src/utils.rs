@@ -148,3 +148,8 @@ fn generate_backup_path(path: &Path) -> Result<PathBuf> {
         Ok(PathBuf::from(backup_filename))
     }
 }
+
+/// Ensure an Option contains a value, otherwise return `TagboxError::MissingField`.
+pub fn require_field<T>(opt: Option<T>, field: &str) -> Result<T> {
+    opt.ok_or_else(|| TagboxError::MissingField { field: field.to_string() })
+}

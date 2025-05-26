@@ -1,10 +1,10 @@
-mod config;
-mod errors;
+pub mod config;
+pub mod errors;
 mod schema;
-mod types;
-mod utils;
+pub mod types;
+pub mod utils;
 mod metainfo;
-mod pathgen;
+pub mod pathgen;
 mod importer;
 mod search;
 mod editor;

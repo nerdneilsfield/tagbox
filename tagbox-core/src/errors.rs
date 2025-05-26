@@ -39,6 +39,9 @@ pub enum TagboxError {
     
     #[error("未找到关联: 文件 {file_id_a} 和 {file_id_b}")]
     LinkNotFound { file_id_a: String, file_id_b: String },
+
+    #[error("missing required field: {field}")]
+    MissingField { field: String },
 }
 
 pub type Result<T> = std::result::Result<T, TagboxError>;

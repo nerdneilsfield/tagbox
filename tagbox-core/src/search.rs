@@ -1,5 +1,6 @@
 use crate::config::AppConfig;
 use crate::errors::{Result, TagboxError};
+use crate::utils::require_field;
 use crate::types::{FileEntry, SearchOptions, SearchResult, QueryParam};
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool, Row, query::Query, sqlite::SqliteArguments, Arguments};
 use std::path::PathBuf;
@@ -694,7 +695,7 @@ impl Searcher {
         
         let mut map = HashMap::new();
         for row in metadata {
-            map.insert(row.key, row.value.unwrap_or_default());
+            map.insert(row.key, require_field(row.value, "file_metadata.value")?);
         }
         
         Ok(map)

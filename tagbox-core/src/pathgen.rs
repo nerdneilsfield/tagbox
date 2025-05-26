@@ -145,3 +145,16 @@ impl PathGenerator {
         result
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sanitize_filename() {
+        let cfg = AppConfig::default();
+        let generator = PathGenerator::new(cfg);
+        let cleaned = generator.sanitize_filename(" bad/na?me.txt ");
+        assert_eq!(cleaned, "bad_na_me_txt");
+    }
+}
