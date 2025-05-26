@@ -1,0 +1,16 @@
+[package]
+name = "tagbox-tools"
+version = "0.1.0"
+edition = "2021"
+authors = ["Qi Deng<dengqi935@gmail.com>"]
+description = "Tools for TagBox file management system"
+
+[dependencies]
+tokio = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "macros", "migrate", "chrono", "uuid"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[[bin]]
+name = "tagbox-init-db"
+path = "src/init-db.rs"

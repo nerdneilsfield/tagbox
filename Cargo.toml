@@ -1,0 +1,36 @@
+[workspace]
+resolver = "2"  # 添加这一行，使用 2021 版本的依赖解析器
+members = [
+    "tagbox-core",
+    "tagbox-cli",
+    "tagbox-tui",
+    "tagbox-gui",
+    "tagbox-config",
+    "tagbox-tools"
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Qi Deng<dengqi935@gmail.com>"]
+description = "A file management system with tagging and searching capabilities"
+license = "MIT"
+repository = "https://github.com/nerdneilsfield/tagbox"
+
+[workspace.dependencies]
+tokio = { version = "1.33", features = ["full"] }
+sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "macros", "migrate", "chrono", "uuid"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+uuid = { version = "1.5", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+async-trait = "0.1"
+sha2 = "0.10"
+walkdir = "2.4"
+pest = "2.7"
+pest_derive = "2.7"

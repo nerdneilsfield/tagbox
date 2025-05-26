@@ -1,0 +1,89 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Windows PowerShell Command Rules
+
+This rule ensures that all shell commands are compatible with Windows PowerShell 7.5.
+
+## Command Replacements
+
+When suggesting shell commands, use these PowerShell equivalents:
+
+- Use `New-Item -ItemType Directory -Path` instead of `mkdir`
+
+- Use `Remove-Item` instead of `rm`
+
+- Use `Remove-Item -Recurse -Force` instead of `rm -rf`
+
+- Use `New-Item -ItemType File -Path` instead of `touch`
+
+- Use `Get-ChildItem` instead of `ls`
+
+- Use `Copy-Item` instead of `cp`
+
+- Use `Move-Item` instead of `mv`
+
+- Use `Get-Content` instead of `cat`
+
+- Use `Write-Output` instead of `echo`
+
+- Use `$PWD` instead of `pwd`
+
+- Use `Set-Location` instead of `cd`
+
+- Use `Select-String` instead of `grep`
+
+- Use `Set-ItemProperty` instead of `chmod`
+
+- Use `$env:` prefix for environment variables
+
+- Use `.` instead of `source`
+
+- Use `Get-Command` instead of `which`
+
+- Use `New-Item -ItemType SymbolicLink -Path` instead of `ln -s`
+
+## Path Conventions
+
+- Use Windows-style path separators (backslashes)
+
+- Convert forward slashes to backslashes in paths
+
+- Use semicolons (;) for path separators in environment variables
+
+## Environment Variables
+
+- Always use `$env:` prefix for environment variables
+
+- Example: `$env:PATH` not `$PATH`
+
+## File Operations
+
+- Use Windows-style paths
+
+- Use proper PowerShell cmdlets for file operations
+
+- Ensure proper error handling with PowerShell try/catch blocks
+
+## Script Execution
+
+- Use `npm run` for npm scripts
+
+- Use `yarn` for yarn commands
+
+- Use `pnpm` for pnpm commands
+
+## Applies To
+
+*.ps1
+
+*.psm1
+
+*.psd1
+
+infra/**/*
+
+
+scripts/**/*
