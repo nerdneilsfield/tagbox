@@ -1,7 +1,5 @@
 # TagBox 数据库设计文档
 
-[database.png](./database.png)
-
 ## 一、设计目标
 
 TagBox 的数据库旨在实现以下核心能力：
@@ -10,7 +8,7 @@ TagBox 的数据库旨在实现以下核心能力：
 * 支持多对多的标签、作者关系，支持作者笔名归一
 * 支持全文模糊搜索（含中文）
 * 支持文件之间的语义双链与来源管理
-* 支持软删除机制与扩展访问记录功能
+* 支持软删除机制、访问记录与热门文件统计
 
 ## 二、范式合规性分析
 
@@ -22,7 +20,7 @@ TagBox 的数据库旨在实现以下核心能力：
 
 数据库已在保持轻量的基础上，基本满足 1NF\~3NF 规范，确保结构清晰、扩展性强。
 
-## 三、核心实体与关系结构
+## 三、核心实体与关系结构（优化版）
 
 ### 1. files 文件主表
 
@@ -51,22 +49,26 @@ TagBox 的数据库旨在实现以下核心能力：
 | id          | TEXT     | UUID 主键         |
 | name        | TEXT     | 标签显示名           |
 | path        | TEXT     | 层级路径（如 技术/Rust） |
+| parent\_id  | TEXT     | 父标签 ID（可为空）     |
 | created\_at | DATETIME | 创建时间            |
+| is\_deleted | BOOLEAN  | 是否被禁用/隐藏        |
 
 ### 3. file\_tags 多对多标签关系表
 
-| 字段名      | 类型   | 说明          |
-| -------- | ---- | ----------- |
-| file\_id | TEXT | 外键，指向 files |
-| tag\_id  | TEXT | 外键，指向 tags  |
+| 字段名         | 类型       | 说明          |
+| ----------- | -------- | ----------- |
+| file\_id    | TEXT     | 外键，指向 files |
+| tag\_id     | TEXT     | 外键，指向 tags  |
+| created\_at | DATETIME | 关联时间        |
 
 ### 4. categories 分类表
 
-| 字段名    | 类型   | 说明            |
-| ------ | ---- | ------------- |
-| id     | TEXT | UUID 主键       |
-| path   | TEXT | 分类路径（如 书籍/编程） |
-| parent | TEXT | 父分类 ID（可空）    |
+| 字段名         | 类型       | 说明            |
+| ----------- | -------- | ------------- |
+| id          | TEXT     | UUID 主键       |
+| path        | TEXT     | 分类路径（如 书籍/编程） |
+| parent      | TEXT     | 父分类 ID（可空）    |
+| updated\_at | DATETIME | 更新时间          |
 
 ### 5. authors 作者表
 
@@ -75,7 +77,7 @@ TagBox 的数据库旨在实现以下核心能力：
 | id          | TEXT     | UUID 主键          |
 | name        | TEXT     | 显示名              |
 | real\_name  | TEXT     | 本名（可空）           |
-| aliases     | TEXT     | 笔名 JSON 数组       |
+| aliases     | TEXT     | 笔名 JSON 数组（辅助信息） |
 | bio         | TEXT     | 简介               |
 | homepage    | TEXT     | 主页 / 个人网站 / 社交链接 |
 | created\_at | DATETIME | 创建时间             |
@@ -127,10 +129,29 @@ CREATE VIRTUAL TABLE file_search USING fts5(
 | accessed\_at | DATETIME | 访问时间            |
 | method       | TEXT     | CLI / GUI / API |
 
-## 五、规范与实践建议
+## 五、索引与完整性建议
 
-* 所有主表建议添加：`created_at`, `updated_at`, `is_deleted` 字段，支持软删除策略
-* 标签与分类均建议建立唯一索引，防止重复
-* 建议定期维护清理 `is_deleted=true` 的记录（如 30 天后删除）
-* 全文搜索字段建议在写入/编辑时保持同步更新
-* 外键使用 ON DELETE CASCADE 以保障关系一致性
+### 常用索引
+
+```sql
+CREATE INDEX idx_files_category ON files(category_id);
+CREATE INDEX idx_files_year ON files(year);
+CREATE INDEX idx_files_hash ON files(current_hash);
+CREATE INDEX idx_tags_path ON tags(path);
+CREATE INDEX idx_authors_name ON authors(name);
+```
+
+### 外键约束策略
+
+* files.category\_id → categories.id：`ON DELETE SET NULL`
+* file\_authors → authors.id：`ON DELETE CASCADE`
+* file\_tags → tags.id：`ON DELETE CASCADE`
+* file\_links → files.id：`ON DELETE CASCADE`
+
+## 六、实践建议
+
+* 建议所有表使用 UTC 时间
+* 所有主表建议添加 created\_at / updated\_at 字段
+* FTS5 虚拟表同步更新需手动维护（建议通过触发器或逻辑同步）
+* tag/category 支持逻辑删除字段 is\_deleted，避免误删
+* 搜索推荐使用 tag 前缀匹配（`path MATCH '技术/*'`）

@@ -28,75 +28,110 @@ TagBox 是一个面向个人文件管理的本地原生工具，强调：
 ### 3. 配置管理
 
 * 所有配置项集中在 `AppConfig`，使用 `toml` 加载 + `serde` 派发
-* 不在各功能模块中直接解析环境变量或路径，应统一入口
+* 配置结构推荐分层，支持 `validate()` 校验
+* 统一使用 `.toml` 配置格式，避免混乱
 
 ### 4. 错误处理
 
 * 所有模块返回 `Result<T, TagboxError>`
-* 提供统一错误类型 `TagboxError`，支持 `thiserror`
-* 避免 `unwrap` / `expect`，全部使用显式异常传播
+* 提供统一错误类型 `TagboxError`，使用 `thiserror` 实现
+
+```rust
+#[derive(thiserror::Error, Debug)]
+pub enum TagboxError {
+  #[error("数据库错误: {0}")]
+  Database(Box<dyn std::error::Error + Send + Sync>),
+  #[error("配置错误: {0}")]
+  Config(String),
+  #[error("I/O错误: {0}")]
+  Io(#[from] std::io::Error),
+  #[error("文件未找到: {path}")]
+  FileNotFound { path: std::path::PathBuf },
+  #[error("重复的文件哈希: {hash}")]
+  DuplicateHash { hash: String },
+  #[error("无效查询语法: {query}")]
+  InvalidQuery { query: String },
+  #[error("元信息提取失败: {0}")]
+  MetaInfoExtraction(String),
+}
+```
 
 ---
 
-## 三、单元测试规范
+## 三、异步编程建议
+
+* 所有数据库与文件操作应采用 `async fn` 实现，便于并发
+* 推荐使用 `tokio` + `sea-query` + `rusqlite` 或 `sqlx` + `tokio` 组合
+* CLI/GUI 可通过 `tokio::main` 驱动 async API
+
+---
+
+## 四、单元测试与集成测试
 
 ### 1. 测试组织结构
 
-* 每个模块必须带有 `mod tests`，存于同一文件尾部或 `tests/` 目录
-* 公共结构体和函数需覆盖以下测试：
+* 每个模块带 `mod tests`，使用 `#[cfg(test)]`
+* 可在 `tests/` 下增加集成测试（如导入-搜索全链路）
 
-  * 正常行为（正常导入、查询等）
-  * 边界行为（空输入、无结果等）
-  * 错误行为（数据库错误、字段缺失等）
+### 2. 样例推荐
 
-### 2. 推荐工具
+```rust
+#[tokio::test]
+async fn test_import_and_search() {
+  // 1. 使用 tempfile 创建数据库
+  // 2. init_database()
+  // 3. 构造 ImportMetadata → import_file()
+  // 4. 调用 search_files() 验证记录是否写入
+}
+```
 
-* 使用 Rust 自带测试框架：`#[test]`
-* 支持使用 `tempfile`, `assert_cmd`, `serial_test` 等做集成测试
-* 未来支持 `cargo nextest` 并行测试框架加速 CI
+### 3. 工具与覆盖率
 
-### 3. 覆盖率要求
+* 推荐工具：`tempfile`, `assert_cmd`, `predicates`, `serial_test`, `tokio`
+* 覆盖率检测：使用 `cargo tarpaulin` + `cargo nextest`
 
-* 各模块核心路径需覆盖 80% 以上逻辑分支
-* 可使用 `cargo tarpaulin` 做代码覆盖率检测
+### 4. 性能测试（可选）
 
----
-
-## 四、集成测试建议
-
-### 场景建议（放在 `tests/cli.rs`, `tests/integration.rs`）
-
-* 导入 → 搜索 → 获取路径 → 打开（完整流程）
-* 导入重复文件（hash 判重）
-* 模糊查询 + DSL 过滤组合测试
-* CLI `--stdio` 模式 JSON 交互测试
+* 使用 `criterion` 进行导入与搜索性能基准评估
 
 ---
 
-## 五、CI/CD 规范建议
+## 五、CI/CD 流程建议
 
-### 构建建议
+### 1. Git 工作流
 
-* 使用 GitHub Actions 自动构建：
+* 分支命名：`feature/xxx`, `fix/xxx`, `refactor/xxx`
+* 提交格式：Conventional Commits，如 `feat: 添加搜索分页`
 
-  * `cargo check`
-  * `cargo fmt --check`
-  * `cargo clippy -- -D warnings`
-  * `cargo test --all`
+### 2. GitHub Actions 工作流建议
 
-### 发布策略
+```yaml
+steps:
+- uses: actions/checkout@v3
+- uses: actions-rs/toolchain@v1
+  with:
+    toolchain: stable
+    override: true
+- run: cargo fmt --check
+- run: cargo clippy -- -D warnings
+- run: cargo test --all
+- run: cargo audit
+```
 
-* CLI 工具支持 `cargo install` 发布方式
-* GUI 可构建为压缩包或单文件（静态链接）
-* 支持通过 GitHub Release 分发二进制
+### 3. 版本发布建议
+
+* CLI 可通过 `cargo install`
+* GUI 可使用 `cargo-bundle`, `cargo-dist` 发布二进制
+* Release 支持多平台构建与 artifact 上传
 
 ---
 
-## 六、未来可引入规范
+## 六、后续规范规划
 
-| 方向   | 工具/做法                  | 说明                 |
-| ---- | ---------------------- | ------------------ |
-| 文档生成 | `cargo doc` + `mdbook` | 自动生成 API 文档 + 用户手册 |
-| 代码风格 | `rustfmt.toml`         | 统一缩进、换行等           |
-| 静态检查 | `clippy.toml`          | 控制 lint 级别         |
-| 安全审计 | `cargo audit`          | 第三方依赖漏洞检测          |
+| 方向   | 工具/方法                  | 说明              |
+| ---- | ---------------------- | --------------- |
+| 文档生成 | `cargo doc`, `mdbook`  | 自动生成 API + 使用手册 |
+| 风格统一 | `rustfmt.toml`         | 格式约定一致          |
+| 安全检查 | `cargo audit`          | 检测依赖漏洞          |
+| 构建测试 | `nextest`, `tarpaulin` | 并行测试 + 覆盖率统计    |
+| 插件系统 | 预留动态注册机制               | 导入器 / 编辑器扩展点    |
