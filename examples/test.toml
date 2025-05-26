@@ -1,0 +1,22 @@
+[import.paths]
+storage_dir = "./tagbox_data/files"
+rename_template = "{title}_{authors}_{year}"
+classify_template = "{category1}/{filename}"
+
+[import.metadata]
+prefer_json = true
+fallback_pdf = true
+default_category = "misc"
+
+[search]
+default_limit = 20
+enable_fts = true
+fts_language = "simple"
+
+[database]
+path = "./tagbox_data/meta.db"
+journal_mode = "WAL"
+sync_mode = "NORMAL"
+
+[hash]
+algorithm = "blake2b"
