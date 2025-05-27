@@ -6,3 +6,18 @@ authors = ["Qi Deng<dengqi935@gmail.com>"]
 description = "Core library for TagBox file management system"
 
 [dependencies]
+tagbox-core = { path = "../tagbox-core" }
+clap = { workspace = true, features = ["derive"] }
+env_logger = { workspace = true }
+indicatif = { workspace = true }
+tabled = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+log = { workspace = true }
+thiserror = { workspace = true }
+url = { workspace = true }
+reqwest = { workspace = true }
+futures = { workspace = true }
+dirs = { workspace = true }
+num_cpus = { workspace = true }
