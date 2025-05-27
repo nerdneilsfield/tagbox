@@ -26,7 +26,7 @@ pub fn find_config_file() -> Result<PathBuf> {
     // 1. Try current directory first
     let current_dir_config = PathBuf::from("tagbox.toml");
     if current_dir_config.exists() {
-        log::info!(
+        log::debug!(
             "Using config file from current directory: {}",
             current_dir_config.display()
         );
@@ -40,7 +40,7 @@ pub fn find_config_file() -> Result<PathBuf> {
     if let Some(config_dir) = dirs::config_dir() {
         let platform_config = config_dir.join("tagbox").join("tagbox.toml");
         if platform_config.exists() {
-            log::info!(
+            log::debug!(
                 "Using config file from platform config directory: {}",
                 platform_config.display()
             );
@@ -52,7 +52,7 @@ pub fn find_config_file() -> Result<PathBuf> {
     if let Some(home_dir) = dirs::home_dir() {
         let home_config = home_dir.join(".config").join("tagbox").join("tagbox.toml");
         if home_config.exists() {
-            log::info!(
+            log::debug!(
                 "Using config file from home .config: {}",
                 home_config.display()
             );
@@ -62,7 +62,7 @@ pub fn find_config_file() -> Result<PathBuf> {
         // 4. Try dotfile in home directory
         let dotfile_config = home_dir.join(".tagbox.toml");
         if dotfile_config.exists() {
-            log::info!(
+            log::debug!(
                 "Using config file from home dotfile: {}",
                 dotfile_config.display()
             );
@@ -73,7 +73,7 @@ pub fn find_config_file() -> Result<PathBuf> {
     // 5. Try system-wide config (Unix-like systems)
     let system_config = PathBuf::from("/etc/tagbox/tagbox.toml");
     if system_config.exists() {
-        log::info!("Using system-wide config file: {}", system_config.display());
+        log::debug!("Using system-wide config file: {}", system_config.display());
         return Ok(system_config);
     }
 
@@ -86,7 +86,7 @@ pub fn find_config_file() -> Result<PathBuf> {
         PathBuf::from("tagbox.toml")
     };
 
-    log::info!(
+    log::debug!(
         "No existing config found, will use default location: {}",
         default_config.display()
     );

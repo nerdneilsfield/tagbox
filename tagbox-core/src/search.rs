@@ -5,7 +5,7 @@ use crate::utils::require_field;
 use sqlx::{sqlite::SqliteArguments, Arguments, Row, SqlitePool};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 /// 查询解析器和执行器
 pub struct Searcher {
@@ -21,9 +21,9 @@ impl Searcher {
         let fts5_signal_available = Self::check_signal_fts5_available(&db_pool).await;
 
         if fts5_signal_available {
-            info!("Signal FTS5 分词器可用，将启用高级模糊搜索");
+            debug!("Signal FTS5 分词器可用，将启用高级模糊搜索");
         } else {
-            info!("Signal FTS5 分词器不可用，将使用标准搜索");
+            debug!("Signal FTS5 分词器不可用，将使用标准搜索");
         }
 
         Self {
@@ -86,7 +86,7 @@ impl Searcher {
                 TagboxError::Database(e)
             })?;
 
-        info!("FTS5扩展已启用");
+        debug!("FTS5扩展已启用");
 
         // 创建或重建FTS5虚拟表 (根据 Signal FTS5 可用性选择分词器)
         let tokenizer = if self.fts5_signal_available {
@@ -119,13 +119,13 @@ impl Searcher {
         // 重建FTS索引
         self.rebuild_fts_index().await?;
 
-        info!("FTS5索引已初始化");
+        debug!("FTS5索引已初始化");
         Ok(())
     }
 
     /// 重建FTS索引
     pub async fn rebuild_fts_index(&self) -> Result<()> {
-        info!("开始重建FTS索引...");
+        debug!("开始重建FTS索引...");
 
         // 清空当前FTS索引
         sqlx::query("DELETE FROM files_fts;")
@@ -140,14 +140,14 @@ impl Searcher {
                 .await
                 .map_err(TagboxError::Database)?;
 
-        info!("找到 {} 个文件需要索引", file_ids.len());
+        debug!("找到 {} 个文件需要索引", file_ids.len());
 
         // 为每个文件添加索引
         for file_id in file_ids {
             self.update_fts_for_file(&file_id).await?;
         }
 
-        info!("FTS索引重建完成");
+        debug!("FTS索引重建完成");
         Ok(())
     }
 
@@ -312,15 +312,7 @@ impl Searcher {
 
         // 处理年份范围
         if let Some(year) = parsed.year {
-            where_clauses.push(
-                "EXISTS (
-                SELECT 1 FROM file_metadata fm 
-                WHERE fm.file_id = f.id 
-                AND fm.key = 'year' 
-                AND fm.value = ?
-            )"
-                .to_string(),
-            );
+            where_clauses.push("f.year = ?".to_string());
             params.push(year.to_string());
         }
 
@@ -394,6 +386,11 @@ impl Searcher {
                 params.push(fts_query);
             } else {
                 sql.push_str(&format!(" ORDER BY f.{} {}", sort_by, direction));
+            }
+        } else {
+            // 默认排序：当没有文本搜索时（如通配符查询），按更新时间倒序排列（越新的越靠前）
+            if parsed.text.is_empty() {
+                sql.push_str(" ORDER BY f.updated_at DESC");
             }
         }
 
@@ -518,15 +515,16 @@ impl Searcher {
 
             // 前缀匹配（中等权重）
             query_parts.push(format!("{}*", term));
-
-            // 模糊匹配（低权重）
-            if term.len() > 2 {
-                query_parts.push(format!("NEAR({}, 2)", term));
-            }
         }
 
-        // 组合所有查询部分
-        query_parts.join(" OR ")
+        // For FTS5, we need to use proper syntax: (term1 OR term2)
+        if query_parts.is_empty() {
+            String::new()
+        } else if query_parts.len() == 1 {
+            query_parts[0].clone()
+        } else {
+            format!("({})", query_parts.join(" OR "))
+        }
     }
 
     /// 构建标准 FTS5 查询表达式
@@ -566,8 +564,14 @@ impl Searcher {
             }
         }
 
-        // 组合所有查询部分
-        query_parts.join(" OR ")
+        // For FTS5, we need to use proper syntax: (term1 OR term2)
+        if query_parts.is_empty() {
+            String::new()
+        } else if query_parts.len() == 1 {
+            query_parts[0].clone()
+        } else {
+            format!("({})", query_parts.join(" OR "))
+        }
     }
 
     /// 生成标准模糊匹配项
@@ -661,6 +665,11 @@ impl Searcher {
         }
 
         parsed.text = text_parts.join(" ");
+
+        // 特殊处理通配符 "*" - 表示获取所有文件
+        if parsed.text.trim() == "*" {
+            parsed.text = String::new(); // 清空文本搜索，这样就会跳过 FTS5 查询
+        }
 
         debug!("解析后的查询: {:?}", parsed);
         Ok(parsed)

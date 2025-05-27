@@ -34,7 +34,8 @@ struct JsonRpcError {
 
 /// Handle stdio mode (JSON-RPC)
 pub async fn handle_stdio(config: &AppConfig) -> Result<()> {
-    log::info!("Starting stdio mode (JSON-RPC)");
+    // Silence all logging for stdio mode to avoid interfering with JSON-RPC communication
+    log::set_max_level(log::LevelFilter::Off);
 
     let stdin = io::stdin();
     let reader = BufReader::new(stdin.lock());

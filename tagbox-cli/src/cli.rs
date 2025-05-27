@@ -150,6 +150,33 @@ pub enum Commands {
         offset: Option<usize>,
     },
 
+    /// List all files with pagination
+    List {
+        /// Output result as JSON
+        #[arg(long)]
+        json: bool,
+
+        /// Comma-separated fields (e.g., title,path,authors)
+        #[arg(long)]
+        columns: Option<String>,
+
+        /// Files per page (default: 20)
+        #[arg(long, default_value = "20")]
+        per_page: usize,
+
+        /// Page number (starts from 1)
+        #[arg(long, default_value = "1")]
+        page: usize,
+
+        /// Sort by field (updated_at, created_at, title, year)
+        #[arg(long, default_value = "updated_at")]
+        sort_by: String,
+
+        /// Sort ascending (default is descending)
+        #[arg(long)]
+        asc: bool,
+    },
+
     /// Show a file's metadata
     Preview {
         /// File ID

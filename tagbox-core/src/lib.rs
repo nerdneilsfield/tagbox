@@ -28,6 +28,7 @@ use config::AppConfig;
 use errors::Result;
 use schema::Database;
 use std::path::{Path, PathBuf};
+use tracing::{debug, info, warn};
 use types::{FileEntry, FileUpdateRequest, ImportMetadata, SearchOptions, SearchResult};
 
 /// 初始化数据库 - Initialize database
@@ -54,13 +55,13 @@ pub async fn extract_metainfo(path: &Path, config: &AppConfig) -> Result<ImportM
 /// 导入文件到库中
 pub async fn import_file(
     path: &Path,
-    _metadata: ImportMetadata,
+    metadata: ImportMetadata,
     config: &AppConfig,
 ) -> Result<FileEntry> {
     let db = Database::new(&config.database.path).await?;
     let importer = Importer::new(config.clone(), db.pool().clone());
 
-    importer.import(path).await
+    importer.import_with_metadata(path, metadata).await
 }
 
 // 提取文件元数据并导入数据
@@ -150,7 +151,7 @@ pub async fn extract_and_import_files(
 
     // 第二阶段：串行导入到数据库
     // SQLite 不支持并发写入，必须一个一个导入
-    info!("Starting sequential database import");
+    debug!("Starting sequential database import");
 
     // 创建一个共享的数据库连接池，避免重复创建
     let db = Database::new(&config.database.path).await?;
@@ -163,10 +164,10 @@ pub async fn extract_and_import_files(
         let path_str = path.to_string_lossy().to_string();
 
         // 使用已经创建的 importer 实例，避免重复创建数据库连接
-        info!("Attempting to import: {}", path_str);
+        debug!("Attempting to import: {}", path_str);
         match importer.import_with_metadata(&path, metadata).await {
             Ok(entry) => {
-                info!("Successfully imported: {} (ID: {})", path_str, entry.id);
+                debug!("Successfully imported: {} (ID: {})", path_str, entry.id);
                 entries.push(entry);
             }
             Err(e) => {

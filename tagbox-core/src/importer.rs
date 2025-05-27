@@ -43,7 +43,7 @@ impl Importer {
         file_path: &Path,
         metadata: ImportMetadata,
     ) -> Result<FileEntry> {
-        info!("开始导入文件（使用已提取元数据）: {}", file_path.display());
+        debug!("开始导入文件（使用已提取元数据）: {}", file_path.display());
 
         // 1. 检查文件是否存在
         if !file_path.exists() {
@@ -107,7 +107,7 @@ impl Importer {
 
     /// 从文件路径导入文件
     pub async fn import(&self, file_path: &Path) -> Result<FileEntry> {
-        info!("开始导入文件: {}", file_path.display());
+        debug!("开始导入文件: {}", file_path.display());
 
         // 1. 检查文件是否存在
         if !file_path.exists() {

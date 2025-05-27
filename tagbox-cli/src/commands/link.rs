@@ -9,7 +9,7 @@ pub async fn handle_link(
     relation: Option<String>,
     config: &AppConfig,
 ) -> Result<()> {
-    log::info!(
+    log::debug!(
         "Linking files: {} -> {} (relation: {:?})",
         id1,
         id2,
@@ -46,7 +46,7 @@ pub async fn handle_unlink(
 
 /// Handle single unlink operation
 async fn handle_single_unlink(id1: &str, id2: &str, config: &AppConfig) -> Result<()> {
-    log::info!("Unlinking files: {} -> {}", id1, id2);
+    log::debug!("Unlinking files: {} -> {}", id1, id2);
 
     // Verify both files exist
     let _file1 = tagbox_core::get_file(id1, config).await?;

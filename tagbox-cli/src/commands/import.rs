@@ -180,7 +180,7 @@ async fn import_single_file(
     if delete {
         spinner.set_message("Deleting original file...");
         std::fs::remove_file(path)?;
-        log::info!("Deleted original file: {}", path.display());
+        log::debug!("Deleted original file: {}", path.display());
     }
 
     spinner.finish_with_message("Import completed");

@@ -205,6 +205,17 @@ async fn execute_command(
             offset,
         } => commands::search::handle_search(&query, json, columns, limit, offset, config).await,
 
+        Commands::List {
+            json,
+            columns,
+            per_page,
+            page,
+            sort_by,
+            asc,
+        } => {
+            commands::list::handle_list(json, columns, per_page, page, &sort_by, asc, config).await
+        }
+
         Commands::Preview {
             id,
             only_meta,

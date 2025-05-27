@@ -4,7 +4,7 @@ use tagbox_core::AuthorManager;
 
 /// Handle author commands
 pub async fn handle_author_add(name: &str, config: &AppConfig) -> Result<()> {
-    log::info!("Adding author: {}", name);
+    log::debug!("Adding author: {}", name);
 
     let db = tagbox_core::schema::Database::new(&config.database.path).await?;
     let author_manager = AuthorManager::new(db.pool().clone());
@@ -17,7 +17,7 @@ pub async fn handle_author_add(name: &str, config: &AppConfig) -> Result<()> {
 
 /// Handle author removal
 pub async fn handle_author_remove(id: &str, config: &AppConfig) -> Result<()> {
-    log::info!("Removing author: {}", id);
+    log::debug!("Removing author: {}", id);
 
     let db = tagbox_core::schema::Database::new(&config.database.path).await?;
     let _author_manager = AuthorManager::new(db.pool().clone());
@@ -33,7 +33,7 @@ pub async fn handle_author_remove(id: &str, config: &AppConfig) -> Result<()> {
 
 /// Handle author merge
 pub async fn handle_author_merge(from_id: &str, to_id: &str, config: &AppConfig) -> Result<()> {
-    log::info!("Merging author {} into {}", from_id, to_id);
+    log::debug!("Merging author {} into {}", from_id, to_id);
 
     let db = tagbox_core::schema::Database::new(&config.database.path).await?;
     let author_manager = AuthorManager::new(db.pool().clone());

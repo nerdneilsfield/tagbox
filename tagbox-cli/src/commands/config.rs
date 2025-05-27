@@ -3,7 +3,7 @@ use tagbox_core::config::AppConfig;
 
 /// Handle config get command
 pub async fn handle_config_get(key: &str, config: &AppConfig) -> Result<()> {
-    log::info!("Getting config value for key: {}", key);
+    log::debug!("Getting config value for key: {}", key);
 
     let value = get_config_value(config, key)?;
     println!("{}", value);
@@ -13,7 +13,7 @@ pub async fn handle_config_get(key: &str, config: &AppConfig) -> Result<()> {
 
 /// Handle config set command
 pub async fn handle_config_set(key: &str, value: &str, _config: &AppConfig) -> Result<()> {
-    log::info!("Setting config value: {} = {}", key, value);
+    log::debug!("Setting config value: {} = {}", key, value);
 
     // For now, just show what would be set
     // TODO: Implement actual config modification when core supports it
@@ -103,7 +103,7 @@ fn get_available_config_keys() -> Vec<String> {
 
 /// Handle config cd command
 pub async fn handle_config_cd() -> Result<()> {
-    log::info!("Getting config directory path");
+    log::debug!("Getting config directory path");
 
     let config_file = crate::utils::config::find_config_file()?;
     if let Some(parent) = config_file.parent() {

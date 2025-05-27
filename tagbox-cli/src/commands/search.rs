@@ -12,7 +12,7 @@ pub async fn handle_search(
     offset: Option<usize>,
     config: &AppConfig,
 ) -> Result<()> {
-    log::info!("Searching for: {}", query);
+    log::debug!("Searching for: {}", query);
 
     let search_options = Some(SearchOptions {
         offset: offset.unwrap_or(0),
@@ -43,7 +43,7 @@ pub async fn handle_search(
 
 /// Handle query debug command
 pub async fn handle_query_debug(dsl: &str, config: &AppConfig) -> Result<()> {
-    log::info!("Debugging DSL query: {}", dsl);
+    log::debug!("Debugging DSL query: {}", dsl);
 
     // Create a searcher to debug the query
     let db = tagbox_core::schema::Database::new(&config.database.path).await?;

@@ -446,7 +446,7 @@ async fn test_fts5_table_creation(conn: &mut sqlx::SqliteConnection) {
 
     match test_result {
         Ok(_) => {
-            tracing::info!("✅ FTS5 is working! Can create FTS5 tables");
+            tracing::debug!("✅ FTS5 is working! Can create FTS5 tables");
 
             // 清理测试表
             let _ = sqlx::query("DROP TABLE IF EXISTS test_fts5_basic")
@@ -458,7 +458,7 @@ async fn test_fts5_table_creation(conn: &mut sqlx::SqliteConnection) {
         }
         Err(e) => {
             tracing::warn!("❌ FTS5 table creation failed: {:?}", e);
-            tracing::info!("Will use fallback search without FTS5");
+            tracing::debug!("Will use fallback search without FTS5");
         }
     }
 }
@@ -470,18 +470,18 @@ async fn check_sqlite_compile_options(conn: &mut sqlx::SqliteConnection) {
         .await
     {
         Ok(rows) => {
-            tracing::info!("SQLite compile options:");
+            tracing::debug!("SQLite compile options:");
             let mut has_fts5 = false;
             for row in rows {
                 if let Ok(option) = row.try_get::<String, _>(0) {
-                    tracing::info!("  {}", option);
+                    tracing::debug!("  {}", option);
                     if option.contains("ENABLE_FTS5") {
                         has_fts5 = true;
                     }
                 }
             }
             if has_fts5 {
-                tracing::info!("✅ FTS5 is enabled in SQLite compilation");
+                tracing::debug!("✅ FTS5 is enabled in SQLite compilation");
             } else {
                 tracing::warn!("❌ FTS5 is not enabled in SQLite compilation");
             }
@@ -504,7 +504,7 @@ async fn test_signal_tokenizer_availability(conn: &mut sqlx::SqliteConnection) {
 
     match test_result {
         Ok(_) => {
-            tracing::info!("✅ Signal tokenizer is available and working");
+            tracing::debug!("✅ Signal tokenizer is available and working");
 
             // 清理测试表
             let _ = sqlx::query("DROP TABLE IF EXISTS test_signal_tokenizer")
@@ -513,7 +513,7 @@ async fn test_signal_tokenizer_availability(conn: &mut sqlx::SqliteConnection) {
         }
         Err(e) => {
             tracing::warn!("❌ Signal tokenizer not available: {:?}", e);
-            tracing::info!("Will fall back to standard FTS5 tokenizers");
+            tracing::debug!("Will fall back to standard FTS5 tokenizers");
         }
     }
 }
@@ -528,14 +528,14 @@ async fn register_signal_tokenizer_via_ffi(conn: &mut sqlx::SqliteConnection) {
 
     match init_result {
         Ok(_) => {
-            tracing::info!("Signal tokenizer loaded via load_extension");
+            tracing::debug!("Signal tokenizer loaded via load_extension");
         }
         Err(_) => {
             // 如果load_extension失败，尝试直接注册
-            tracing::info!("Attempting direct Signal tokenizer registration via static linking");
+            tracing::debug!("Attempting direct Signal tokenizer registration via static linking");
 
             // 使用auto extension机制
-            tracing::info!(
+            tracing::debug!(
                 "Signal tokenizer auto extension should have been registered at startup"
             );
         }
@@ -548,7 +548,7 @@ fn register_signal_auto_extension() {
         let result = sqlite3_auto_extension(signal_fts5_tokenizer_init);
         if result == 0 {
             // SQLITE_OK
-            tracing::info!("✅ Signal tokenizer registered as auto extension successfully");
+            tracing::debug!("✅ Signal tokenizer registered as auto extension successfully");
         } else {
             tracing::warn!(
                 "❌ Failed to register Signal tokenizer as auto extension: error code {}",

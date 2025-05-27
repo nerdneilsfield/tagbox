@@ -141,29 +141,35 @@ impl MetaInfoExtractor {
 
             return self.parse_json_metadata(json_value);
         }
-
         Err(TagboxError::FileNotFound { path: json_path })
     }
 
     /// 获取与文件关联的元数据JSON文件路径
     fn get_metadata_json_path(&self, file_path: &Path) -> Result<PathBuf> {
-        if let Some(stem) = file_path.file_stem() {
+        if let Some(filename) = file_path.file_name() {
             let parent = file_path.parent().unwrap_or(Path::new("."));
+            let filename_str = filename.to_string_lossy();
 
-            // 首先尝试查找 .meta.json 文件
-            let meta_json_path = parent.join(format!("{}.meta.json", stem.to_string_lossy()));
+            // 首先尝试查找 .meta 文件（推荐格式）
+            let meta_path = parent.join(format!("{}.meta", filename_str));
+            if meta_path.exists() {
+                return Ok(meta_path);
+            }
+
+            // 然后尝试查找 .meta.json 文件
+            let meta_json_path = parent.join(format!("{}.meta.json", filename_str));
             if meta_json_path.exists() {
                 return Ok(meta_json_path);
             }
 
-            // 然后尝试查找 .json 文件（用于兼容测试和简单场景）
-            let json_path = parent.join(format!("{}.json", stem.to_string_lossy()));
+            // 最后尝试查找 .json 文件（用于兼容测试和简单场景）
+            let json_path = parent.join(format!("{}.json", filename_str));
             if json_path.exists() {
                 return Ok(json_path);
             }
 
-            // 如果都不存在，返回首选的 .meta.json 路径（让调用者处理文件不存在的情况）
-            Ok(meta_json_path)
+            // 如果都不存在，返回首选的 .meta 路径（让调用者处理文件不存在的情况）
+            Ok(meta_path)
         } else {
             Err(TagboxError::Config(format!(
                 "无法获取文件名: {}",
@@ -226,7 +232,7 @@ impl MetaInfoExtractor {
                 .map(|s| s.to_string()),
             additional_info: HashMap::new(),
             file_metadata: None,
-            type_metadata: None,
+            type_metadata: Some(json.clone()),
         };
 
         // 处理额外信息
@@ -259,21 +265,34 @@ impl MetaInfoExtractor {
     }
 
     /// 从PDF文件中提取元数据
-    fn extract_from_pdf(&self, file_path: &Path) -> Result<ImportMetadata> {
-        let mut meta = self.extract_from_filename(file_path);
-
+    fn extract_from_pdf(&self, _file_path: &Path) -> Result<ImportMetadata> {
         // TODO: 实现完整的PDF元数据提取
         // 当前pdf crate的API较复杂，暂时返回基本信息
         warn!("PDF元数据提取功能暂未完全实现");
 
-        // 构建基本的文件元数据
+        // 构建基本的文件元数据 - 不覆盖已有的基础元数据
         let file_metadata = serde_json::json!({
             "pdf": {
                 "note": "Full PDF metadata extraction pending implementation"
             }
         });
 
-        meta.file_metadata = Some(file_metadata);
+        // 返回一个仅包含文件元数据的空结构，不覆盖title等基础信息
+        let meta = ImportMetadata {
+            title: String::new(),
+            authors: Vec::new(),
+            year: None,
+            publisher: None,
+            source: None,
+            category1: String::new(),
+            category2: None,
+            category3: None,
+            tags: Vec::new(),
+            summary: None,
+            additional_info: HashMap::new(),
+            file_metadata: Some(file_metadata),
+            type_metadata: None,
+        };
 
         Ok(meta)
     }
