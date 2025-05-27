@@ -4,8 +4,8 @@ use crate::metainfo::MetaInfoExtractor;
 use crate::pathgen::PathGenerator;
 use crate::types::{FileEntry, ImportMetadata};
 use crate::utils::{
-    calculate_file_hash, current_time, ensure_dir_exists, generate_uuid, require_field,
-    safe_copy_file,
+    calculate_file_hash_with_type, current_time, ensure_dir_exists, generate_uuid, require_field,
+    safe_copy_file, HashType,
 };
 use chrono::{DateTime, Utc};
 use sqlx::SqlitePool;
@@ -53,8 +53,9 @@ impl Importer {
         }
 
         // 2. 计算文件哈希
-        let hash = calculate_file_hash(file_path).await?;
-        debug!("文件哈希: {}", hash);
+        let hash_type = HashType::from_str(&self.config.hash.algorithm)?;
+        let hash = calculate_file_hash_with_type(file_path, hash_type).await?;
+        debug!("文件哈希 ({:?}): {}", hash_type, hash);
 
         // 3. 检查文件是否已存在（基于哈希）
         if let Some(existing_entry) = self.find_by_hash(&hash).await? {
@@ -116,8 +117,9 @@ impl Importer {
         }
 
         // 2. 计算文件哈希
-        let hash = calculate_file_hash(file_path).await?;
-        debug!("文件哈希: {}", hash);
+        let hash_type = HashType::from_str(&self.config.hash.algorithm)?;
+        let hash = calculate_file_hash_with_type(file_path, hash_type).await?;
+        debug!("文件哈希 ({:?}): {}", hash_type, hash);
 
         // 3. 检查文件是否已存在（基于哈希）
         if let Some(existing_entry) = self.find_by_hash(&hash).await? {

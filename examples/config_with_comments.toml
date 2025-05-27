@@ -1,0 +1,134 @@
+# TagBox 配置文件示例
+# 此文件包含所有可配置选项及其说明
+
+# ================== 数据库配置 ==================
+[database]
+# 数据库文件路径
+# SQLite 数据库文件的存储位置
+path = "./tagbox_data/meta.db"
+
+# 日志模式
+# - "WAL": Write-Ahead Logging，提供更好的并发性能（推荐）
+# - "DELETE": 传统日志模式
+# - "TRUNCATE": 截断日志模式
+# - "PERSIST": 持久化日志模式
+journal_mode = "WAL"
+
+# 同步模式
+# - "FULL": 最安全但最慢
+# - "NORMAL": 平衡安全和性能（推荐）
+# - "OFF": 最快但有数据丢失风险
+sync_mode = "NORMAL"
+
+# 最大连接数
+# SQLite 同时允许的最大连接数
+max_connections = 10
+
+# 繁忙超时（毫秒）
+# 当数据库被锁定时的等待时间
+busy_timeout = 5000
+
+# ================== 存储配置 ==================
+[storage]
+# 文件库路径
+# 导入的文件将被存储在此目录
+library_path = "./tagbox_data/files"
+
+# 是否启用备份
+# 如果文件已存在，是否创建备份
+backup_enabled = true
+
+# 备份路径
+# 备份文件的存储目录
+backup_path = "./tagbox_data/backup"
+
+# ================== 导入配置 ==================
+[import]
+# 是否自动重命名
+# 导入时是否根据模板重命名文件
+auto_rename = true
+
+# 命名模板
+# 可用变量: {year}, {category}, {title}, {authors}
+naming_template = "{year}/{category}/{title}"
+
+# 复制模式
+# - "copy": 复制文件到库中（推荐）
+# - "move": 移动文件到库中
+# - "link": 创建符号链接（需要系统支持）
+copy_mode = "copy"
+
+# 导入路径配置
+[import.paths]
+# 存储目录
+# 文件将被组织存储在此目录下
+storage_dir = "./tagbox_data/files"
+
+# 重命名模板
+# 文件重命名规则，可用变量: {title}, {authors}, {year}
+rename_template = "{title}_{authors}_{year}"
+
+# 分类模板
+# 文件分类存储规则，可用变量: {category1}, {category2}, {category3}, {filename}
+classify_template = "{category1}/{filename}"
+
+# 元数据配置
+[import.metadata]
+# 优先使用 JSON 元数据
+# 如果存在同名 .json 文件，是否优先使用其中的元数据
+prefer_json = true
+
+# 回退到 PDF 元数据
+# 当其他方式无法获取元数据时，是否尝试从 PDF 中提取
+fallback_pdf = true
+
+# 默认分类
+# 当无法确定文件分类时使用的默认值
+default_category = "未分类"
+
+# ================== 搜索配置 ==================
+[search]
+# 默认结果限制
+# 搜索时返回的最大结果数
+default_limit = 50
+
+# 启用全文搜索
+# 是否启用 SQLite FTS5 全文搜索功能
+enable_fts = true
+
+# 全文搜索语言
+# - "simple": 简单分词器（适用于英文）
+# - "unicode61": Unicode 分词器
+# - "porter": Porter 词干分析器
+fts_language = "simple"
+
+# 模糊搜索
+# 是否启用模糊搜索功能
+fuzzy_search_enabled = true
+
+# ================== 哈希配置 ==================
+[hash]
+# 哈希算法
+# 用于文件去重和完整性验证的哈希算法
+# 
+# 可选值（按速度排序，从快到慢）：
+# - "xxh3_64": XXHash3-64位 - 极快的非加密哈希，适合快速去重
+# - "xxh3_128": XXHash3-128位 - 极快的非加密哈希，碰撞率更低
+# - "blake3": Blake3 - 最快的加密安全哈希（推荐）
+# - "blake2b": Blake2b - 快速的加密安全哈希
+# - "md5": MD5 - 快速但已被破解，仅用于兼容旧系统
+# - "sha256": SHA-256 - 标准安全哈希，较慢
+# - "sha512": SHA-512 - 更强的安全哈希，较慢
+#
+# 性能参考（相对速度）：
+# XXHash3: ~10GB/s
+# Blake3: ~3GB/s (单线程), ~15GB/s (多线程)
+# Blake2b: ~1GB/s
+# MD5: ~500MB/s
+# SHA-256: ~300MB/s
+# SHA-512: ~200MB/s
+algorithm = "blake3"
+
+# 导入时验证
+# 是否在导入文件时验证文件完整性
+verify_on_import = true

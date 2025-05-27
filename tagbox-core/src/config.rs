@@ -53,13 +53,29 @@ pub struct DatabaseConfig {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct HashConfig {
-    /// 使用的哈希算法: "sha256" 或 "blake2b"
+    /// 使用的哈希算法
+    /// 可选值:
+    /// - "md5": 最快但已被破解，仅用于非安全场景
+    /// - "sha256": 广泛使用的安全哈希 (较慢)
+    /// - "sha512": 更强的SHA变体 (较慢)
+    /// - "blake2b": 快速且安全 (推荐)
+    /// - "blake3": 最新最快的安全哈希 (推荐)
+    /// - "xxh3_64": 极快的非加密哈希
+    /// - "xxh3_128": 极快的非加密哈希，更低碰撞率
     #[serde(default = "default_hash_algorithm")]
     pub algorithm: String,
+
+    /// 是否在导入时验证文件完整性
+    #[serde(default = "default_verify_on_import")]
+    pub verify_on_import: bool,
 }
 
 fn default_hash_algorithm() -> String {
-    "blake2b".to_string()
+    "blake3".to_string()
+}
+
+fn default_verify_on_import() -> bool {
+    true
 }
 
 impl Default for AppConfig {
@@ -88,7 +104,8 @@ impl Default for AppConfig {
                 sync_mode: "NORMAL".to_string(),
             },
             hash: HashConfig {
-                algorithm: "blake2b".to_string(),
+                algorithm: "blake3".to_string(),
+                verify_on_import: true,
             },
         }
     }

@@ -1,58 +1,208 @@
 use crate::errors::{Result, TagboxError};
 use blake2::{Blake2b512, Digest as Blake2Digest};
+use blake3;
 use chrono::{DateTime, Utc};
-use sha2::Sha256;
+use md5;
+use sha2::{Digest, Sha256, Sha512};
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
-
-/// 计算文件的 SHA-256 哈希值
-pub async fn calculate_file_hash(path: &Path) -> Result<String> {
-    let file_content = fs::read(path).map_err(TagboxError::Io)?;
-
-    let mut hasher = Sha256::new();
-    hasher.update(&file_content);
-    let result = hasher.finalize();
-
-    Ok(format!("{:x}", result))
-}
-
-/// 计算文件的 Blake2b 哈希值
-pub async fn calculate_file_blake2b(path: &Path) -> Result<String> {
-    let file_content = fs::read(path).map_err(TagboxError::Io)?;
-
-    let mut hasher = Blake2b512::new();
-    hasher.update(&file_content);
-    let result = hasher.finalize();
-
-    Ok(format!("{:x}", result))
-}
-
-/// 通用哈希计算函数，支持多种哈希算法
-pub async fn calculate_hash(path: &Path, hash_type: HashType) -> Result<String> {
-    let file_content = fs::read(path).map_err(TagboxError::Io)?;
-
-    match hash_type {
-        HashType::Sha256 => {
-            let mut hasher = Sha256::new();
-            hasher.update(&file_content);
-            let result = hasher.finalize();
-            Ok(format!("{:x}", result))
-        }
-        HashType::Blake2b => {
-            let mut hasher = Blake2b512::new();
-            hasher.update(&file_content);
-            let result = hasher.finalize();
-            Ok(format!("{:x}", result))
-        }
-    }
-}
+use xxhash_rust::xxh3::{xxh3_128, xxh3_64};
 
 /// 支持的哈希算法类型
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HashType {
+    /// MD5 - 最快但已被破解，仅用于非安全场景
+    Md5,
+    /// SHA-256 - 广泛使用的安全哈希
     Sha256,
+    /// SHA-512 - 更强的SHA变体
+    Sha512,
+    /// Blake2b - 快速且安全
     Blake2b,
+    /// Blake3 - 最新最快的安全哈希
+    Blake3,
+    /// XXHash3 64位 - 极快的非加密哈希
+    XXH3_64,
+    /// XXHash3 128位 - 极快的非加密哈希，更低碰撞率
+    XXH3_128,
+}
+
+impl HashType {
+    /// 从字符串解析哈希类型
+    pub fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "md5" => Ok(HashType::Md5),
+            "sha256" => Ok(HashType::Sha256),
+            "sha512" => Ok(HashType::Sha512),
+            "blake2b" => Ok(HashType::Blake2b),
+            "blake3" => Ok(HashType::Blake3),
+            "xxh3" | "xxh3_64" | "xxhash3" => Ok(HashType::XXH3_64),
+            "xxh3_128" | "xxhash3_128" => Ok(HashType::XXH3_128),
+            _ => Err(TagboxError::Config(format!("不支持的哈希算法: {}", s))),
+        }
+    }
+
+    /// 获取算法描述
+    pub fn description(&self) -> &'static str {
+        match self {
+            HashType::Md5 => "MD5 (快速但不安全)",
+            HashType::Sha256 => "SHA-256 (标准安全哈希)",
+            HashType::Sha512 => "SHA-512 (更强的安全哈希)",
+            HashType::Blake2b => "Blake2b (快速安全哈希)",
+            HashType::Blake3 => "Blake3 (最快的安全哈希)",
+            HashType::XXH3_64 => "XXHash3-64 (极快非加密哈希)",
+            HashType::XXH3_128 => "XXHash3-128 (极快非加密哈希，低碰撞)",
+        }
+    }
+
+    /// 是否为加密安全的哈希
+    pub fn is_cryptographic(&self) -> bool {
+        match self {
+            HashType::Md5 => false, // MD5已被破解
+            HashType::Sha256 | HashType::Sha512 | HashType::Blake2b | HashType::Blake3 => true,
+            HashType::XXH3_64 | HashType::XXH3_128 => false,
+        }
+    }
+}
+
+/// 计算文件哈希的通用函数
+pub async fn calculate_file_hash(path: &Path) -> Result<String> {
+    // 默认使用 Blake3
+    calculate_file_hash_with_type(path, HashType::Blake3).await
+}
+
+/// 使用指定算法计算文件哈希
+pub async fn calculate_file_hash_with_type(path: &Path, hash_type: HashType) -> Result<String> {
+    // 对于大文件，使用流式读取以节省内存
+    const BUFFER_SIZE: usize = 1024 * 1024; // 1MB buffer
+
+    let mut file = fs::File::open(path).map_err(TagboxError::Io)?;
+    let metadata = file.metadata().map_err(TagboxError::Io)?;
+
+    // 小文件直接读入内存
+    if metadata.len() < 10 * 1024 * 1024 {
+        // 10MB
+        let mut content = Vec::new();
+        file.read_to_end(&mut content).map_err(TagboxError::Io)?;
+        return calculate_hash_from_bytes(&content, hash_type);
+    }
+
+    // 大文件使用流式处理
+    let mut buffer = vec![0u8; BUFFER_SIZE];
+
+    match hash_type {
+        HashType::Md5 => {
+            let mut content = Vec::new();
+            file.read_to_end(&mut content).map_err(TagboxError::Io)?;
+            let digest = md5::compute(&content);
+            Ok(format!("{:x}", digest))
+        }
+        HashType::Sha256 => {
+            let mut hasher = Sha256::new();
+            loop {
+                let bytes_read = file.read(&mut buffer).map_err(TagboxError::Io)?;
+                if bytes_read == 0 {
+                    break;
+                }
+                hasher.update(&buffer[..bytes_read]);
+            }
+            Ok(format!("{:x}", hasher.finalize()))
+        }
+        HashType::Sha512 => {
+            let mut hasher = Sha512::new();
+            loop {
+                let bytes_read = file.read(&mut buffer).map_err(TagboxError::Io)?;
+                if bytes_read == 0 {
+                    break;
+                }
+                hasher.update(&buffer[..bytes_read]);
+            }
+            Ok(format!("{:x}", hasher.finalize()))
+        }
+        HashType::Blake2b => {
+            let mut hasher = Blake2b512::new();
+            loop {
+                let bytes_read = file.read(&mut buffer).map_err(TagboxError::Io)?;
+                if bytes_read == 0 {
+                    break;
+                }
+                hasher.update(&buffer[..bytes_read]);
+            }
+            Ok(format!("{:x}", hasher.finalize()))
+        }
+        HashType::Blake3 => {
+            let mut hasher = blake3::Hasher::new();
+            loop {
+                let bytes_read = file.read(&mut buffer).map_err(TagboxError::Io)?;
+                if bytes_read == 0 {
+                    break;
+                }
+                hasher.update(&buffer[..bytes_read]);
+            }
+            Ok(hasher.finalize().to_hex().to_string())
+        }
+        HashType::XXH3_64 => {
+            let mut content = Vec::new();
+            file.read_to_end(&mut content).map_err(TagboxError::Io)?;
+            let hash = xxh3_64(&content);
+            Ok(format!("{:016x}", hash))
+        }
+        HashType::XXH3_128 => {
+            let mut content = Vec::new();
+            file.read_to_end(&mut content).map_err(TagboxError::Io)?;
+            let hash = xxh3_128(&content);
+            Ok(format!("{:032x}", hash))
+        }
+    }
+}
+
+/// 从字节数组计算哈希
+pub fn calculate_hash_from_bytes(data: &[u8], hash_type: HashType) -> Result<String> {
+    match hash_type {
+        HashType::Md5 => {
+            let digest = md5::compute(data);
+            Ok(format!("{:x}", digest))
+        }
+        HashType::Sha256 => {
+            let mut hasher = Sha256::new();
+            hasher.update(data);
+            Ok(format!("{:x}", hasher.finalize()))
+        }
+        HashType::Sha512 => {
+            let mut hasher = Sha512::new();
+            hasher.update(data);
+            Ok(format!("{:x}", hasher.finalize()))
+        }
+        HashType::Blake2b => {
+            let mut hasher = Blake2b512::new();
+            hasher.update(data);
+            Ok(format!("{:x}", hasher.finalize()))
+        }
+        HashType::Blake3 => {
+            let hash = blake3::hash(data);
+            Ok(hash.to_hex().to_string())
+        }
+        HashType::XXH3_64 => {
+            let hash = xxh3_64(data);
+            Ok(format!("{:016x}", hash))
+        }
+        HashType::XXH3_128 => {
+            let hash = xxh3_128(data);
+            Ok(format!("{:032x}", hash))
+        }
+    }
+}
+
+/// 计算文件的 Blake2b 哈希值（保留以兼容旧代码）
+pub async fn calculate_file_blake2b(path: &Path) -> Result<String> {
+    calculate_file_hash_with_type(path, HashType::Blake2b).await
+}
+
+/// 通用哈希计算函数（保留以兼容旧代码）
+pub async fn calculate_hash(path: &Path, hash_type: HashType) -> Result<String> {
+    calculate_file_hash_with_type(path, hash_type).await
 }
 
 /// 归一化路径（转换为绝对路径）
