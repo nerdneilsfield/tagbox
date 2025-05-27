@@ -3,7 +3,7 @@ use blake2::{Blake2b512, Digest as Blake2Digest};
 use blake3;
 use chrono::{DateTime, Utc};
 use md5;
-use sha2::{Digest, Sha256, Sha512};
+use sha2::{Sha256, Sha512};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};

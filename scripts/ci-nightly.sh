@@ -5,7 +5,10 @@ echo "=== Running Nightly Tests ==="
 
 # Setup environment
 export RUST_BACKTRACE=1
-export DATABASE_URL="sqlite:${PWD}/.sqlx-data/tagbox.db"
+# Script directory
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+export DATABASE_URL="sqlite:${PROJECT_ROOT}/.sqlx-data/tagbox.db"
 
 # Initialize database
 echo "Initializing test database..."

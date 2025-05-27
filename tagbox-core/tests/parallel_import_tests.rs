@@ -90,6 +90,12 @@ async fn test_parallel_import_multiple_files() {
     let config_path = create_test_config(temp_dir.path());
     let config = load_config(&config_path).await.unwrap();
 
+    // 确保数据库文件存在
+    if let Some(parent) = config.database.path.parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
+    fs::File::create(&config.database.path).unwrap();
+
     // 初始化数据库
     init_database(&config.database.path).await.unwrap();
 
@@ -123,6 +129,12 @@ async fn test_parallel_import_with_failures() {
     let config_path = create_test_config(temp_dir.path());
     let config = load_config(&config_path).await.unwrap();
 
+    // 确保数据库文件存在
+    if let Some(parent) = config.database.path.parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
+    fs::File::create(&config.database.path).unwrap();
+
     // 初始化数据库
     init_database(&config.database.path).await.unwrap();
 
@@ -150,6 +162,12 @@ async fn test_parallel_import_duplicate_files() {
     let temp_dir = TempDir::new().unwrap();
     let config_path = create_test_config(temp_dir.path());
     let config = load_config(&config_path).await.unwrap();
+
+    // 确保数据库文件存在
+    if let Some(parent) = config.database.path.parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
+    fs::File::create(&config.database.path).unwrap();
 
     // 初始化数据库
     init_database(&config.database.path).await.unwrap();
@@ -188,6 +206,12 @@ async fn test_parallel_import_performance() {
     let temp_dir = TempDir::new().unwrap();
     let config_path = create_test_config(temp_dir.path());
     let config = load_config(&config_path).await.unwrap();
+
+    // 确保数据库文件存在
+    if let Some(parent) = config.database.path.parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
+    fs::File::create(&config.database.path).unwrap();
 
     // 初始化数据库
     init_database(&config.database.path).await.unwrap();

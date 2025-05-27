@@ -54,20 +54,22 @@ impl Database {
             CREATE TABLE IF NOT EXISTS files (
                 id TEXT PRIMARY KEY,
                 title TEXT NOT NULL,
-                original_filename TEXT NOT NULL,
-                hash TEXT NOT NULL UNIQUE,
+                initial_hash TEXT NOT NULL UNIQUE,
                 current_hash TEXT,
-                path TEXT NOT NULL,
-                original_path TEXT,
-                category1 TEXT NOT NULL,
-                category2 TEXT,
-                category3 TEXT,
-                summary TEXT,
+                relative_path TEXT NOT NULL,
+                filename TEXT NOT NULL,
+                year INTEGER,
+                publisher TEXT,
+                category_id TEXT,
+                source_url TEXT,
+                summaries TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                last_accessed TEXT,
                 is_deleted INTEGER NOT NULL DEFAULT 0,
-                UNIQUE(hash)
+                deleted_at TEXT,
+                file_metadata TEXT,
+                type_metadata TEXT,
+                UNIQUE(initial_hash)
             );
             "#,
         )
@@ -296,6 +298,94 @@ impl Database {
         .execute(&self.pool)
         .await
         .map_err(TagboxError::Database)?;
+
+        // 创建系统配置表
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS system_config (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                description TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            "#,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(TagboxError::Database)?;
+
+        // 创建文件历史表
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS file_history (
+                id TEXT PRIMARY KEY,
+                file_id TEXT NOT NULL,
+                operation TEXT NOT NULL,
+                old_hash TEXT,
+                new_hash TEXT,
+                old_path TEXT,
+                new_path TEXT,
+                old_size INTEGER,
+                new_size INTEGER,
+                changed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                changed_by TEXT,
+                reason TEXT,
+                FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+            );
+            "#,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(TagboxError::Database)?;
+
+        // 创建文件访问统计表
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS file_access_stats (
+                file_id TEXT NOT NULL,
+                access_date DATE NOT NULL,
+                access_type TEXT NOT NULL,
+                access_count INTEGER DEFAULT 1,
+                last_accessed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (file_id, access_date, access_type),
+                FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+            );
+            "#,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(TagboxError::Database)?;
+
+        // 创建索引
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_files_initial_hash ON files(initial_hash);")
+            .execute(&self.pool)
+            .await
+            .map_err(TagboxError::Database)?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_files_current_hash ON files(current_hash);")
+            .execute(&self.pool)
+            .await
+            .map_err(TagboxError::Database)?;
+
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_file_history_file_id ON file_history(file_id);",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(TagboxError::Database)?;
+
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_file_history_changed_at ON file_history(changed_at);",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(TagboxError::Database)?;
+
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_file_access_stats_access_date ON file_access_stats(access_date);")
+            .execute(&self.pool)
+            .await
+            .map_err(TagboxError::Database)?;
 
         info!("数据库迁移完成");
         Ok(())

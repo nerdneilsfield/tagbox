@@ -48,6 +48,9 @@ pub enum TagboxError {
 
     #[error("导入错误: {0}")]
     ImportError(String),
+
+    #[error("未找到: {0}")]
+    NotFound(String),
 }
 
 pub type Result<T> = std::result::Result<T, TagboxError>;

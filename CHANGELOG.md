@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2025-05-27] - 系统配置验证与文件完整性功能
+
+### Added
+- System configuration validation and file integrity features
+  - New `validation` module for file integrity checking with recursive directory support
+  - New `system` module for system configuration management and compatibility checking
+  - New `history` module for file history tracking and access statistics
+  - `validate_files_in_path` API - validates file integrity with optional recursive scanning
+  - `check_config_compatibility` API - ensures database/configuration consistency
+  - `update_file_hash` API - updates file hashes with history tracking
+  - `record_file_history` API - tracks file operations (create, update, move, delete, access)
+  - File access statistics tracking for usage analytics
+- Database schema enhancements
+  - `system_config` table for storing system configuration
+  - `file_history` table for tracking all file changes
+  - `file_access_stats` table for file usage analytics
+- Support for multiple hash algorithms (MD5, SHA-256, SHA-512, Blake2b, Blake3, XXHash3)
+  - Configurable hash algorithm selection via configuration file
+  - Hash verification on import option
+- Parallel file import optimization
+  - Two-phase approach: parallel metadata extraction + sequential database writes
+  - Respects SQLite's single-writer limitation while maximizing performance
+
+### Changed
+- Updated all dependencies to latest versions
+  - SQLx upgraded from 0.7 to 0.8 with migration fixes
+  - Added sea-query for SQL query building
+- Database schema updates
+  - `files` table now uses `initial_hash` and `current_hash` instead of single `hash` field
+  - Added `size` field to `files` table for integrity validation
+  - Updated all queries and indexes to match new schema
+- Configuration structure improvements
+  - Hash configuration now under `hash` section instead of `hash_config`
+  - Added `verify_on_import` option to hash configuration
+- Improved CI/CD scripts
+  - Extracted CI commands to shell scripts for local testing
+  - Implemented Swatinem/rust-cache for better caching performance
+
+### Fixed
+- 80+ clippy warnings across the codebase
+  - Removed dead code and unused imports
+  - Fixed redundant closures and ToString implementations
+  - Improved error handling patterns
+  - Fixed strip_prefix usage patterns
+- Windows compatibility issues in justfile
+- SQLx 0.8 breaking changes in query macros
+- Compilation errors with missing dependencies
+- Fixed sccache conflicts with clippy in CI
+
+## [2025-05-26] - CI/CD Pipeline and Initial Setup
+
 ### Added
 - Comprehensive CI/CD pipeline with GitHub Actions
   - Main CI workflow for push and pull requests with multi-platform support

@@ -276,6 +276,85 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .await?;
     println!("Indexes created successfully.");
 
+    // 创建新的系统配置和文件历史相关表
+    println!("Creating system configuration and file history tables...");
+
+    execute_sql(
+        &db,
+        "
+        CREATE TABLE IF NOT EXISTS system_config (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            description TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        ",
+        "Create system_config table",
+    )
+    .await?;
+
+    execute_sql(
+        &db,
+        "
+        CREATE TABLE IF NOT EXISTS file_history (
+            id TEXT PRIMARY KEY,
+            file_id TEXT NOT NULL,
+            operation TEXT NOT NULL, -- create, update, move, delete, access
+            old_hash TEXT,
+            new_hash TEXT,
+            old_path TEXT,
+            new_path TEXT,
+            old_size INTEGER,
+            new_size INTEGER,
+            changed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            changed_by TEXT,
+            reason TEXT,
+            FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+        );
+        ",
+        "Create file_history table",
+    )
+    .await?;
+
+    execute_sql(
+        &db,
+        "
+        CREATE TABLE IF NOT EXISTS file_access_stats (
+            file_id TEXT PRIMARY KEY,
+            access_count INTEGER NOT NULL DEFAULT 0,
+            last_accessed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+        );
+        ",
+        "Create file_access_stats table",
+    )
+    .await?;
+
+    // 为新表创建索引
+    execute_sql(
+        &db,
+        "CREATE INDEX IF NOT EXISTS idx_file_history_file_id ON file_history(file_id);",
+        "Create index idx_file_history_file_id",
+    )
+    .await?;
+
+    execute_sql(
+        &db,
+        "CREATE INDEX IF NOT EXISTS idx_file_history_changed_at ON file_history(changed_at);",
+        "Create index idx_file_history_changed_at",
+    )
+    .await?;
+
+    execute_sql(
+        &db,
+        "CREATE INDEX IF NOT EXISTS idx_file_access_stats_access_count ON file_access_stats(access_count);",
+        "Create index idx_file_access_stats_access_count",
+    )
+    .await?;
+
     println!("Database initialized successfully!");
     Ok(())
 }

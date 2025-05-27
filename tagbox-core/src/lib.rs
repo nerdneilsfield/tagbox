@@ -2,21 +2,27 @@ mod authors;
 pub mod config;
 mod editor;
 pub mod errors;
+mod history;
 mod importer;
 mod link;
 pub mod metainfo;
 pub mod pathgen;
 mod schema;
 mod search;
+mod system;
 pub mod types;
 pub mod utils;
+mod validation;
 
 // 导出各个管理器供外部使用
 pub use authors::AuthorManager;
 pub use editor::Editor;
+pub use history::{FileHistoryManager, FileOperation};
 pub use importer::Importer;
 pub use link::LinkManager;
 pub use search::Searcher;
+pub use system::{CompatibilityResult, SystemConfigManager};
+pub use validation::{FileValidator, ValidationResult, ValidationStatus};
 
 use config::AppConfig;
 use errors::Result;
@@ -259,4 +265,94 @@ pub async fn unlink_files(file_id_a: &str, file_id_b: &str, config: &AppConfig) 
     let link_manager = LinkManager::new(db.pool().clone());
 
     link_manager.remove_link(file_id_a, file_id_b).await
+}
+
+/// 验证单个文件的完整性
+pub async fn validate_file(path: &Path, config: &AppConfig) -> Result<ValidationResult> {
+    let db = Database::new(&config.database.path).await?;
+    let validator = FileValidator::new(db.pool().clone(), config.clone());
+
+    validator.validate_single_file(path).await
+}
+
+/// 验证目录中的文件完整性
+pub async fn validate_files_in_path(
+    path: &Path,
+    recursive: bool,
+    config: &AppConfig,
+) -> Result<Vec<ValidationResult>> {
+    let db = Database::new(&config.database.path).await?;
+    let validator = FileValidator::new(db.pool().clone(), config.clone());
+
+    validator.validate_files_in_path(path, recursive).await
+}
+
+/// 更新文件哈希值
+pub async fn update_file_hash(
+    file_id: &str,
+    reason: &str,
+    config: &AppConfig,
+) -> Result<FileEntry> {
+    let db = Database::new(&config.database.path).await?;
+    let validator = FileValidator::new(db.pool().clone(), config.clone());
+
+    validator.update_file_hash(file_id, reason).await
+}
+
+/// 检查配置兼容性
+pub async fn check_config_compatibility(config: &AppConfig) -> Result<CompatibilityResult> {
+    let db = Database::new(&config.database.path).await?;
+    let system_manager = SystemConfigManager::new(db.pool().clone());
+
+    system_manager.check_config_compatibility(config).await
+}
+
+/// 记录文件历史
+pub async fn record_file_history(
+    file_id: &str,
+    operation: FileOperation,
+    changed_by: Option<&str>,
+    reason: Option<&str>,
+    config: &AppConfig,
+) -> Result<String> {
+    let db = Database::new(&config.database.path).await?;
+    let history_manager = FileHistoryManager::new(db.pool().clone());
+
+    history_manager
+        .record_file_history(file_id, operation, changed_by, reason)
+        .await
+}
+
+/// 获取文件历史记录
+pub async fn get_file_history(
+    file_id: &str,
+    limit: Option<u64>,
+    config: &AppConfig,
+) -> Result<Vec<history::FileHistoryEntry>> {
+    let db = Database::new(&config.database.path).await?;
+    let history_manager = FileHistoryManager::new(db.pool().clone());
+
+    history_manager.get_file_history(file_id, limit).await
+}
+
+/// 获取文件访问统计
+pub async fn get_file_access_stats(
+    file_id: &str,
+    config: &AppConfig,
+) -> Result<Option<history::FileAccessStatsEntry>> {
+    let db = Database::new(&config.database.path).await?;
+    let history_manager = FileHistoryManager::new(db.pool().clone());
+
+    history_manager.get_access_stats(file_id).await
+}
+
+/// 获取访问最多的文件
+pub async fn get_most_accessed_files(
+    limit: u64,
+    config: &AppConfig,
+) -> Result<Vec<history::FileAccessStatsEntry>> {
+    let db = Database::new(&config.database.path).await?;
+    let history_manager = FileHistoryManager::new(db.pool().clone());
+
+    history_manager.get_most_accessed_files(limit).await
 }
