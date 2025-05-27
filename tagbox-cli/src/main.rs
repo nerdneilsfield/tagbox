@@ -8,7 +8,7 @@ mod commands;
 mod output;
 mod utils;
 
-use cli::{AuthorCommands, Cli, Commands, ConfigCommands};
+use cli::{AuthorCommands, Cli, Commands, ConfigCommands, DbCommands};
 use utils::{config, error::CliError};
 
 #[tokio::main]
@@ -34,6 +34,23 @@ async fn main() {
         }
         Commands::Config { cd: true, .. } => {
             let result = commands::config::handle_config_cd().await;
+            if let Err(e) = result {
+                error!("Command failed: {}", e);
+                eprintln!("Error: {}", e);
+                process::exit(1);
+            }
+            return;
+        }
+        Commands::Db { command } => {
+            // For db commands, we try to load config but don't fail if it doesn't exist
+            let config = config::load_config(cli.config.as_deref())
+                .await
+                .unwrap_or_else(|_| {
+                    // Use default config for db commands when config file doesn't exist
+                    tagbox_core::config::AppConfig::default()
+                });
+
+            let result = commands::db::handle_db_command(command.clone(), &config).await;
             if let Err(e) = result {
                 error!("Command failed: {}", e);
                 eprintln!("Error: {}", e);
@@ -95,6 +112,24 @@ async fn execute_command(
     command: Commands,
     config: &tagbox_core::config::AppConfig,
 ) -> Result<(), CliError> {
+    // Check if database exists for commands that need it
+    let needs_database = !matches!(command, Commands::InitConfig { .. } | Commands::Db { .. });
+
+    if needs_database {
+        if !commands::db::check_database_exists(config)
+            .await
+            .unwrap_or(false)
+        {
+            eprintln!("❌ Database not found or not properly initialized.");
+            eprintln!("   Run 'tagbox db init' to create the database first.");
+            eprintln!(
+                "   Database should be at: {}",
+                config.database.path.display()
+            );
+            return Err(CliError::DatabaseNotFound);
+        }
+    }
+
     match command {
         Commands::Import {
             path,
@@ -236,6 +271,11 @@ async fn execute_command(
         Commands::InitConfig { .. } => {
             // This case is handled above, but we need it here for exhaustive matching
             unreachable!("InitConfig should be handled before this match")
+        }
+
+        Commands::Db { .. } => {
+            // This case is handled above, but we need it here for exhaustive matching
+            unreachable!("Db commands should be handled before this match")
         }
     }
 }

@@ -34,7 +34,7 @@ pub enum Commands {
         delete: bool,
 
         /// Specify the category for file to store (relative path of storage_path)
-        #[arg(short, long)]
+        #[arg(long)]
         category: Option<String>,
 
         /// Use id to specify the category
@@ -88,7 +88,7 @@ pub enum Commands {
         delete: bool,
 
         /// Specify the category for file to store (relative path of storage_path)
-        #[arg(short, long)]
+        #[arg(long)]
         category: Option<String>,
 
         /// Use id to specify the category
@@ -258,6 +258,12 @@ pub enum Commands {
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
+
+    /// Database management commands
+    Db {
+        #[command(subcommand)]
+        command: DbCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -303,4 +309,27 @@ pub enum ConfigCommands {
 
     /// List all configuration values
     List,
+}
+
+#[derive(Subcommand, Clone)]
+pub enum DbCommands {
+    /// Initialize database
+    Init {
+        /// Force overwrite existing database
+        #[arg(long)]
+        force: bool,
+
+        /// Custom database path
+        #[arg(long)]
+        path: Option<PathBuf>,
+    },
+
+    /// Print path to database directory (for shell integration)
+    Cd,
+
+    /// Print database file path
+    Path,
+
+    /// Check database status
+    Status,
 }

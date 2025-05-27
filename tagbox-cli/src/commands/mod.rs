@@ -1,5 +1,6 @@
 pub mod author;
 pub mod config;
+pub mod db;
 pub mod export;
 pub mod import;
 pub mod init_config;

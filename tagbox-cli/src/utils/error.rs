@@ -28,6 +28,9 @@ pub enum CliError {
 
     #[error("Command execution failed: {0}")]
     CommandFailed(String),
+
+    #[error("Database not found or not properly initialized")]
+    DatabaseNotFound,
 }
 
 pub type Result<T> = std::result::Result<T, CliError>;
