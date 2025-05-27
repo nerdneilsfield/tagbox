@@ -1,3 +1,4 @@
+use serde_json;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
@@ -65,18 +66,34 @@ algorithm = "blake2b"
 
 /// 创建测试文件
 fn create_test_files(temp_dir: &Path, count: usize) -> Vec<std::path::PathBuf> {
-    let files_dir = temp_dir.join("test_files");
+    // 使用配置中的 storage 目录
+    let files_dir = temp_dir.join("storage").join("test_files");
     fs::create_dir_all(&files_dir).unwrap();
 
     let mut files = Vec::new();
 
     for i in 0..count {
-        let file_path = files_dir.join(format!("test_file_{}.txt", i));
-        let content = format!(
-            "Test content for file {}\nThis is a sample file for testing parallel import.",
+        // 创建PDF文件（使用简单的PDF header来模拟）
+        let file_path = files_dir.join(format!("test_file_{}.pdf", i));
+        let pdf_content = format!(
+            "%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /Resources << >> /MediaBox [0 0 612 792] >>\nendobj\nxref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\n0000000115 00000 n\ntrailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n223\n%%EOF\nTest content for file {}", 
             i
         );
-        fs::write(&file_path, content).unwrap();
+        fs::write(&file_path, pdf_content).unwrap();
+
+        // 创建对应的元数据JSON文件
+        let json_path = files_dir.join(format!("test_file_{}.json", i));
+        let metadata = serde_json::json!({
+            "title": format!("Test File {}", i),
+            "authors": [format!("Author {}", i)],
+            "year": 2024 + (i as i32 % 2),
+            "publisher": format!("Publisher {}", i % 3),
+            "category1": if i % 2 == 0 { "技术" } else { "文学" },
+            "tags": [format!("tag{}", i), "test"],
+            "summary": format!("This is a test file number {} for parallel import testing", i)
+        });
+        fs::write(&json_path, serde_json::to_string_pretty(&metadata).unwrap()).unwrap();
+
         files.push(file_path);
     }
 

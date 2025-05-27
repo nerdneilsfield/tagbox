@@ -85,11 +85,19 @@ impl FileValidator {
     }
 
     pub async fn validate_single_file(&self, path: &Path) -> Result<ValidationResult, TagboxError> {
-        let relative_path = path
-            .strip_prefix(&self.config.import.paths.storage_dir)
-            .unwrap_or(path)
-            .to_string_lossy()
-            .to_string();
+        // 尝试获取相对路径，如果文件在 storage_dir 外部，则使用绝对路径
+        let (relative_path, absolute_path) = if path.is_absolute() {
+            if let Ok(rel) = path.strip_prefix(&self.config.import.paths.storage_dir) {
+                (rel.to_string_lossy().to_string(), path.to_path_buf())
+            } else {
+                // 文件在 storage_dir 外部，使用绝对路径
+                (path.to_string_lossy().to_string(), path.to_path_buf())
+            }
+        } else {
+            // 相对路径，转换为绝对路径
+            let abs = self.config.import.paths.storage_dir.join(path);
+            (path.to_string_lossy().to_string(), abs)
+        };
 
         let query = Query::select()
             .columns([Files::Id, Files::CurrentHash, Files::Size])
@@ -105,13 +113,13 @@ impl FileValidator {
                 let stored_hash: String = row.get(1);
                 let stored_size: i64 = row.get(2);
 
-                let metadata = fs::metadata(path).await?;
+                let metadata = fs::metadata(&absolute_path).await?;
                 let current_size = metadata.len() as i64;
 
                 if current_size != stored_size {
                     return Ok(ValidationResult {
                         file_id: Some(file_id),
-                        path: path.to_path_buf(),
+                        path: absolute_path.clone(),
                         status: ValidationStatus::SizeMismatch {
                             expected: stored_size,
                             actual: current_size,
@@ -120,12 +128,12 @@ impl FileValidator {
                 }
 
                 let hash_type = HashType::from_str(&self.config.hash.algorithm)?;
-                let current_hash = calculate_file_hash_with_type(path, hash_type).await?;
+                let current_hash = calculate_file_hash_with_type(&absolute_path, hash_type).await?;
 
                 if current_hash != stored_hash {
                     Ok(ValidationResult {
                         file_id: Some(file_id),
-                        path: path.to_path_buf(),
+                        path: absolute_path,
                         status: ValidationStatus::HashMismatch {
                             expected: stored_hash,
                             actual: current_hash,
@@ -134,14 +142,14 @@ impl FileValidator {
                 } else {
                     Ok(ValidationResult {
                         file_id: Some(file_id),
-                        path: path.to_path_buf(),
+                        path: absolute_path,
                         status: ValidationStatus::Valid,
                     })
                 }
             }
             None => Ok(ValidationResult {
                 file_id: None,
-                path: path.to_path_buf(),
+                path: absolute_path,
                 status: ValidationStatus::NotInDatabase,
             }),
         }
