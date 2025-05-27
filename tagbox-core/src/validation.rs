@@ -332,7 +332,7 @@ mod tests {
                 publisher TEXT,
                 category_id TEXT,
                 source_url TEXT,
-                summaries TEXT,
+                summary TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 is_deleted INTEGER NOT NULL DEFAULT 0,

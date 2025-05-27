@@ -187,7 +187,7 @@ impl Importer {
             publisher: Option<String>,
             category_id: Option<String>,
             source_url: Option<String>,
-            summaries: Option<String>,
+            summary: Option<String>,
             created_at: String,
             updated_at: String,
             is_deleted: i64,
@@ -201,7 +201,7 @@ impl Importer {
             r#"
             SELECT 
                 id as "id!", title as "title!", initial_hash, current_hash, 
-                relative_path, filename, year, publisher, category_id, source_url, summaries,
+                relative_path, filename, year, publisher, category_id, source_url, summary,
                 created_at as "created_at!", updated_at as "updated_at!", is_deleted, deleted_at as "_deleted_at",
                 file_metadata, type_metadata
             FROM files
@@ -234,7 +234,7 @@ impl Importer {
                 category2: None,
                 category3: None,
                 tags,
-                summary: db_row.summaries,
+                summary: db_row.summary,
                 created_at: DateTime::parse_from_rfc3339(&db_row.created_at)
                     .map(|dt| dt.with_timezone(&Utc))
                     .unwrap_or_else(|_| Utc::now()),
@@ -291,7 +291,7 @@ impl Importer {
             r#"
             INSERT INTO files (
                 id, title, initial_hash, current_hash, relative_path, filename,
-                year, publisher, category_id, source_url, summaries,
+                year, publisher, category_id, source_url, summary,
                 created_at, updated_at, is_deleted, deleted_at,
                 file_metadata, type_metadata
             )

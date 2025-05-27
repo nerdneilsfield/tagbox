@@ -62,7 +62,7 @@ impl Database {
                 publisher TEXT,
                 category_id TEXT,
                 source_url TEXT,
-                summaries TEXT,
+                summary TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 is_deleted INTEGER NOT NULL DEFAULT 0,
@@ -82,10 +82,14 @@ impl Database {
             r#"
             CREATE TABLE IF NOT EXISTS authors (
                 id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
+                name TEXT NOT NULL UNIQUE,
+                real_name TEXT,
+                aliases TEXT,
+                bio TEXT,
+                homepage TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                UNIQUE(name)
+                is_deleted INTEGER NOT NULL DEFAULT 0
             );
             "#,
         )
@@ -115,10 +119,10 @@ impl Database {
             CREATE TABLE IF NOT EXISTS tags (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
+                path TEXT NOT NULL UNIQUE,
                 parent_id TEXT,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                UNIQUE(name),
+                is_deleted INTEGER NOT NULL DEFAULT 0,
                 FOREIGN KEY (parent_id) REFERENCES tags(id) ON DELETE SET NULL
             );
             "#,

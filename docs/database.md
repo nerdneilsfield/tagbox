@@ -91,7 +91,7 @@ TagBox 的数据库旨在实现以下核心能力：
 | publisher      | TEXT     | 出版社                  |
 | category\_id   | TEXT     | 所属分类，外键指向 categories |
 | source\_url    | TEXT     | 来源链接                 |
-| summaries      | TEXT     | 多条摘要（JSON 格式）        |
+| summary        | TEXT     | 文件摘要                 |
 | created\_at    | DATETIME | 创建时间                 |
 | updated\_at    | DATETIME | 更新时间                 |
 | is\_deleted    | BOOLEAN  | 是否逻辑删除               |
@@ -170,9 +170,9 @@ TagBox 的数据库旨在实现以下核心能力：
 ### 9. file\_search FTS5 虚拟表（全文索引）
 
 ```sql
-CREATE VIRTUAL TABLE file_search USING fts5(
-  title, tags, summaries, authors,
-  content='files', content_rowid='id'
+CREATE VIRTUAL TABLE files_fts USING fts5(
+  title, tags, summary, authors,
+  content='files', content_rowid='rowid'
 );
 ```
 
@@ -285,3 +285,121 @@ WHERE CAST(file_metadata->>'$.image.width' AS INTEGER) > 1920;
 * 搜索推荐使用 tag 前缀匹配（`path MATCH '技术/*'`）
 * JSON 字段建议创建合适的索引以提升查询性能
 * 通用元数据（如作者、年份）直接作为列存储，特殊元数据使用 JSON
+
+## 八、当前数据库架构（2025年1月）
+
+### 实际表结构
+
+#### 核心表
+
+**files** - 文件主表
+```sql
+CREATE TABLE files (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    initial_hash TEXT NOT NULL UNIQUE,
+    current_hash TEXT,
+    relative_path TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    year INTEGER,
+    publisher TEXT,
+    category_id TEXT,
+    source_url TEXT,
+    summary TEXT,  -- 简单的摘要字段，非JSON
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    deleted_at TEXT,
+    file_metadata TEXT,  -- JSON格式文件特定元数据
+    type_metadata TEXT,  -- JSON格式内容类型元数据
+    UNIQUE(initial_hash)
+);
+```
+
+**authors** - 作者表（扩展版）
+```sql
+CREATE TABLE authors (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    real_name TEXT,
+    aliases TEXT,  -- JSON数组
+    bio TEXT,
+    homepage TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER NOT NULL DEFAULT 0
+);
+```
+
+**tags** - 标签表（层级结构）
+```sql
+CREATE TABLE tags (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    path TEXT NOT NULL UNIQUE,  -- 层级路径，如 "技术/Rust"
+    parent_id TEXT,
+    created_at TEXT NOT NULL,
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (parent_id) REFERENCES tags(id) ON DELETE SET NULL
+);
+```
+
+#### 系统表
+
+**system_config** - 系统配置
+```sql
+CREATE TABLE system_config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    description TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**file_history** - 文件操作历史
+```sql
+CREATE TABLE file_history (
+    id TEXT PRIMARY KEY,
+    file_id TEXT NOT NULL,
+    operation TEXT NOT NULL,  -- create, update, move, delete, access
+    old_hash TEXT,
+    new_hash TEXT,
+    old_path TEXT,
+    new_path TEXT,
+    old_size INTEGER,
+    new_size INTEGER,
+    changed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    changed_by TEXT,
+    reason TEXT,
+    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+);
+```
+
+**file_access_stats** - 文件访问统计
+```sql
+CREATE TABLE file_access_stats (
+    file_id TEXT PRIMARY KEY,
+    access_count INTEGER NOT NULL DEFAULT 0,
+    last_accessed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+);
+```
+
+### 设计决策说明
+
+1. **简化 summary 字段**：使用简单的 TEXT 字段而非 JSON，保持简洁性
+2. **扩展 authors 表**：支持真实姓名、别名、个人简介等丰富信息
+3. **层级 tags 表**：通过 path 字段支持标签层级，如 "技术/编程/Rust"
+4. **系统监控**：添加配置管理、操作历史、访问统计等系统级功能
+5. **完整性约束**：统一外键约束策略，确保数据一致性
+
+### 未来扩展
+
+在 TODO.md 中规划的 file_notes 表将支持：
+- 多类型笔记（摘要、评论、高亮等）
+- 笔记来源追踪（用户、AI、提取等）
+- 层级笔记结构
+- 与搜索系统集成

@@ -101,7 +101,7 @@ impl Searcher {
             CREATE VIRTUAL TABLE files_fts USING fts5(
                 title, 
                 authors,
-                summaries,
+                summary,
                 tags,
                 content='files',
                 content_rowid='rowid',
@@ -156,7 +156,7 @@ impl Searcher {
         // 获取文件信息
         let file = sqlx::query!(
             r#"
-            SELECT rowid, title, summaries FROM files WHERE id = ?
+            SELECT rowid, title, summary FROM files WHERE id = ?
             "#,
             file_id
         )
@@ -187,13 +187,13 @@ impl Searcher {
         // 添加新索引
         sqlx::query!(
             r#"
-            INSERT INTO files_fts (rowid, title, authors, summaries, tags)
+            INSERT INTO files_fts (rowid, title, authors, summary, tags)
             VALUES (?, ?, ?, ?, ?)
             "#,
             file.rowid,
             file.title,
             authors_text,
-            file.summaries,
+            file.summary,
             tags_text
         )
         .execute(&self.db_pool)
@@ -226,7 +226,7 @@ impl Searcher {
             SELECT 
                 f.id, f.title, f.original_filename, f.hash, f.current_hash,
                 f.path, f.original_path, f.category1, f.category2, f.category3,
-                f.summaries,
+                f.summary,
                 f.created_at, f.updated_at, f.last_accessed, f.is_deleted
             FROM files f
             "#,
@@ -358,7 +358,7 @@ impl Searcher {
             params.push(fts_query);
         } else if !parsed.text.is_empty() {
             // 回退到简单的LIKE搜索
-            where_clauses.push("(f.title LIKE ? OR f.summaries LIKE ?)".to_string());
+            where_clauses.push("(f.title LIKE ? OR f.summary LIKE ?)".to_string());
             params.push(format!("%{}%", parsed.text));
             params.push(format!("%{}%", parsed.text));
         }
@@ -466,7 +466,7 @@ impl Searcher {
                 category2: row.get("category2"),
                 category3: row.get("category3"),
                 tags,
-                summary: row.get("summaries"),
+                summary: row.get("summary"),
                 created_at: chrono::DateTime::parse_from_rfc3339(row.get::<&str, _>("created_at"))
                     .unwrap_or_else(|_| chrono::Utc::now().into())
                     .with_timezone(&chrono::Utc),

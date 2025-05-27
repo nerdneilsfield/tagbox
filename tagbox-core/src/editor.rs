@@ -59,7 +59,7 @@ impl Editor {
 
         if let Some(summary_val) = &update.summary {
             // Changed from summaries, using suggestion
-            updates.push("summaries = ?".to_string()); // DB column is summaries
+            updates.push("summary = ?".to_string()); // DB column is summary
             params.push(QueryParam::String(summary_val.clone()));
         }
 
@@ -310,7 +310,7 @@ impl Editor {
             r#"
             SELECT 
                 id, title, initial_hash, current_hash, relative_path, filename,
-                year, publisher, category_id, source_url, summaries,
+                year, publisher, category_id, source_url, summary,
                 created_at, updated_at, is_deleted, deleted_at
             FROM files 
             WHERE id = ?
@@ -365,7 +365,7 @@ impl Editor {
             category2: None,
             category3: None,
             tags,
-            summary: file_row.summaries,
+            summary: file_row.summary,
             created_at: DateTime::parse_from_rfc3339(&file_row.created_at)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),

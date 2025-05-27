@@ -149,7 +149,21 @@ impl MetaInfoExtractor {
     fn get_metadata_json_path(&self, file_path: &Path) -> Result<PathBuf> {
         if let Some(stem) = file_path.file_stem() {
             let parent = file_path.parent().unwrap_or(Path::new("."));
-            Ok(parent.join(format!("{}.meta.json", stem.to_string_lossy())))
+
+            // 首先尝试查找 .meta.json 文件
+            let meta_json_path = parent.join(format!("{}.meta.json", stem.to_string_lossy()));
+            if meta_json_path.exists() {
+                return Ok(meta_json_path);
+            }
+
+            // 然后尝试查找 .json 文件（用于兼容测试和简单场景）
+            let json_path = parent.join(format!("{}.json", stem.to_string_lossy()));
+            if json_path.exists() {
+                return Ok(json_path);
+            }
+
+            // 如果都不存在，返回首选的 .meta.json 路径（让调用者处理文件不存在的情况）
+            Ok(meta_json_path)
         } else {
             Err(TagboxError::Config(format!(
                 "无法获取文件名: {}",

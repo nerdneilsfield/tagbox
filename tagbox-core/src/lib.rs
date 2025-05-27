@@ -109,14 +109,29 @@ pub async fn extract_and_import_files(
         .collect()
         .await;
 
+    info!(
+        "Metadata extraction completed, processing {} results",
+        metadata_results.len()
+    );
+
     // 收集成功提取元数据的文件
     let mut metadata_pairs = Vec::new();
     let mut extraction_errors = Vec::new();
 
-    for result in metadata_results {
+    for (i, result) in metadata_results.into_iter().enumerate() {
         match result {
-            Ok(pair) => metadata_pairs.push(pair),
-            Err(e) => extraction_errors.push(e),
+            Ok(pair) => {
+                info!(
+                    "Metadata extraction success for file {}: {}",
+                    i,
+                    pair.0.display()
+                );
+                metadata_pairs.push(pair);
+            }
+            Err(e) => {
+                warn!("Metadata extraction failed for file {}: {:?}", i, e);
+                extraction_errors.push(e);
+            }
         }
     }
 
@@ -148,13 +163,14 @@ pub async fn extract_and_import_files(
         let path_str = path.to_string_lossy().to_string();
 
         // 使用已经创建的 importer 实例，避免重复创建数据库连接
+        info!("Attempting to import: {}", path_str);
         match importer.import_with_metadata(&path, metadata).await {
             Ok(entry) => {
-                info!("Successfully imported: {}", path_str);
+                info!("Successfully imported: {} (ID: {})", path_str, entry.id);
                 entries.push(entry);
             }
             Err(e) => {
-                warn!("Failed to import {}: {}", path_str, e);
+                warn!("Failed to import {}: {:?}", path_str, e);
                 import_errors.push((path_str, e));
             }
         }

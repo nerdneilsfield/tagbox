@@ -53,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             publisher TEXT,     -- 来自 database.md
             category_id TEXT,   -- 来自 database.md
             source_url TEXT,    -- 来自 database.md
-            summaries TEXT,     -- 来自 database.md (JSON)
+            summary TEXT,     -- 来自 database.md (JSON)
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             is_deleted INTEGER NOT NULL DEFAULT 0, -- 对应 BOOLEAN
@@ -206,7 +206,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
             title, 
             tags,
-            summaries, 
+            summary, 
             authors,
             content=\'files\', 
             content_rowid=\'id\'
