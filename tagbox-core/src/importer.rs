@@ -35,6 +35,75 @@ impl Importer {
         }
     }
 
+    /// 使用已提取的元数据导入文件
+    ///
+    /// 这个方法允许批量导入时重用已经提取的元数据，避免重复提取
+    pub async fn import_with_metadata(
+        &self,
+        file_path: &Path,
+        metadata: ImportMetadata,
+    ) -> Result<FileEntry> {
+        info!("开始导入文件（使用已提取元数据）: {}", file_path.display());
+
+        // 1. 检查文件是否存在
+        if !file_path.exists() {
+            return Err(TagboxError::FileNotFound {
+                path: file_path.to_path_buf(),
+            });
+        }
+
+        // 2. 计算文件哈希
+        let hash = calculate_file_hash(file_path).await?;
+        debug!("文件哈希: {}", hash);
+
+        // 3. 检查文件是否已存在（基于哈希）
+        if let Some(existing_entry) = self.find_by_hash(&hash).await? {
+            warn!(
+                "文件已存在: {} (ID: {})",
+                existing_entry.path.display(),
+                existing_entry.id
+            );
+            return Ok(existing_entry);
+        }
+
+        // 4. 生成新的文件名和目标路径
+        let original_filename = file_path
+            .file_name()
+            .ok_or_else(|| TagboxError::Config(format!("无法获取文件名: {}", file_path.display())))?
+            .to_string_lossy()
+            .to_string();
+
+        let new_filename = self
+            .path_generator
+            .generate_filename(&original_filename, &metadata)?;
+
+        let dest_path = self
+            .path_generator
+            .generate_path(&new_filename, &metadata)?;
+
+        // 确保目标目录存在
+        if let Some(parent) = dest_path.parent() {
+            ensure_dir_exists(parent)?;
+        }
+
+        // 5. 复制文件到目标位置
+        safe_copy_file(file_path, &dest_path).await?;
+
+        // 6. 创建文件记录
+        let file_entry = self
+            .create_file_entry(file_path, &dest_path, &original_filename, &hash, &metadata)
+            .await?;
+
+        info!(
+            "文件导入完成: {} -> {} (ID: {})",
+            file_path.display(),
+            dest_path.display(),
+            file_entry.id
+        );
+
+        Ok(file_entry)
+    }
+
     /// 从文件路径导入文件
     pub async fn import(&self, file_path: &Path) -> Result<FileEntry> {
         info!("开始导入文件: {}", file_path.display());

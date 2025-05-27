@@ -45,6 +45,9 @@ pub enum TagboxError {
 
     #[error("missing required field: {field}")]
     MissingField { field: String },
+
+    #[error("导入错误: {0}")]
+    ImportError(String),
 }
 
 pub type Result<T> = std::result::Result<T, TagboxError>;

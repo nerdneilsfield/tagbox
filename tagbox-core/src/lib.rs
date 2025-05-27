@@ -57,6 +57,122 @@ pub async fn import_file(
     importer.import(path).await
 }
 
+// 提取文件元数据并导入数据
+pub async fn extract_and_import_file(path: &Path, config: &AppConfig) -> Result<FileEntry> {
+    let metadata = extract_metainfo(path, config).await?;
+    import_file(path, metadata, config).await
+}
+
+/// 批量提取文件元数据并导入数据
+///
+/// 采用并行提取元数据 + 串行数据库写入的策略来优化性能
+/// SQLite 写入会锁定整个数据库，所以数据库操作必须串行执行
+pub async fn extract_and_import_files(
+    paths: &[&Path],
+    config: &AppConfig,
+) -> Result<Vec<FileEntry>> {
+    use futures::stream::{self, StreamExt};
+    use tracing::{info, warn};
+
+    // 第一阶段：并行提取所有文件的元数据
+    // 这是 CPU 密集型操作，可以充分利用多核
+    info!(
+        "Starting parallel metadata extraction for {} files",
+        paths.len()
+    );
+
+    let metadata_futures = paths.iter().map(|path| {
+        let path_clone = path.to_path_buf();
+        let config_clone = config.clone();
+        async move {
+            let path_str = path_clone.to_string_lossy().to_string();
+            match extract_metainfo(&path_clone, &config_clone).await {
+                Ok(metadata) => Ok((path_clone, metadata)),
+                Err(e) => {
+                    warn!("Failed to extract metadata from {}: {}", path_str, e);
+                    Err(e)
+                }
+            }
+        }
+    });
+
+    // 使用 buffer_unordered 限制并发数，避免打开太多文件
+    let max_concurrent = num_cpus::get().min(8); // 最多 8 个并发任务
+    let metadata_results: Vec<_> = stream::iter(metadata_futures)
+        .buffer_unordered(max_concurrent)
+        .collect()
+        .await;
+
+    // 收集成功提取元数据的文件
+    let mut metadata_pairs = Vec::new();
+    let mut extraction_errors = Vec::new();
+
+    for result in metadata_results {
+        match result {
+            Ok(pair) => metadata_pairs.push(pair),
+            Err(e) => extraction_errors.push(e),
+        }
+    }
+
+    if !extraction_errors.is_empty() {
+        warn!(
+            "Metadata extraction failed for {} files out of {}",
+            extraction_errors.len(),
+            paths.len()
+        );
+    }
+
+    info!(
+        "Successfully extracted metadata for {} files",
+        metadata_pairs.len()
+    );
+
+    // 第二阶段：串行导入到数据库
+    // SQLite 不支持并发写入，必须一个一个导入
+    info!("Starting sequential database import");
+
+    // 创建一个共享的数据库连接池，避免重复创建
+    let db = Database::new(&config.database.path).await?;
+    let importer = Importer::new(config.clone(), db.pool().clone());
+
+    let mut entries = Vec::new();
+    let mut import_errors = Vec::new();
+
+    for (path, metadata) in metadata_pairs {
+        let path_str = path.to_string_lossy().to_string();
+
+        // 使用已经创建的 importer 实例，避免重复创建数据库连接
+        match importer.import_with_metadata(&path, metadata).await {
+            Ok(entry) => {
+                info!("Successfully imported: {}", path_str);
+                entries.push(entry);
+            }
+            Err(e) => {
+                warn!("Failed to import {}: {}", path_str, e);
+                import_errors.push((path_str, e));
+            }
+        }
+    }
+
+    // 报告结果
+    info!(
+        "Import completed: {} succeeded, {} failed (extraction: {}, import: {})",
+        entries.len(),
+        extraction_errors.len() + import_errors.len(),
+        extraction_errors.len(),
+        import_errors.len()
+    );
+
+    // 如果所有文件都失败了，返回错误
+    if entries.is_empty() && !paths.is_empty() {
+        return Err(errors::TagboxError::ImportError(
+            "All files failed to import".to_string(),
+        ));
+    }
+
+    Ok(entries)
+}
+
 /// 简单文件搜索
 pub async fn search_files(query: &str, config: &AppConfig) -> Result<Vec<FileEntry>> {
     let db = Database::new(&config.database.path).await?;
