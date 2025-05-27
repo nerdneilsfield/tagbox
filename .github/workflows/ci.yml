@@ -21,7 +21,6 @@ env:
   RUST_BACKTRACE: 1
   SQLX_OFFLINE: true
   SCCACHE_GHA_ENABLED: true
-  RUSTC_WRAPPER: sccache
 
 # Cancel outdated builds
 concurrency:
@@ -53,11 +52,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-registry-
 
-      - name: Check formatting
-        run: cargo fmt --all -- --check
+      - name: Make scripts executable
+        run: chmod +x scripts/*.sh
 
-      - name: Run clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Run quick checks
+        run: ./scripts/ci-quick-checks.sh
 
   # Main test job with matrix strategy
   test:
@@ -136,29 +135,14 @@ jobs:
         with:
           tool: cargo-nextest
 
-      - name: Setup database
-        run: |
-          mkdir -p .sqlx-data
-          rm -f .sqlx-data/tagbox.db
-          touch .sqlx-data/tagbox.db
-          DATABASE_URL="sqlite:.sqlx-data/tagbox.db" cargo run --bin tagbox-init-db
-          cd tagbox-core && DATABASE_URL="sqlite:../.sqlx-data/tagbox.db" cargo sqlx prepare -- --lib
+      - name: Make scripts executable
+        run: chmod +x scripts/*.sh
 
-      - name: Build all packages
-        run: cargo build --all --all-features
-
-      - name: Run tests with nextest
-        run: |
-          DATABASE_URL="sqlite:.sqlx-data/tagbox.db" cargo nextest run --all --all-features
-
-      - name: Run doc tests
-        run: |
-          DATABASE_URL="sqlite:.sqlx-data/tagbox.db" cargo test --doc --all --all-features
-
-      - name: Security audit
-        run: |
-          cargo install cargo-audit
-          cargo audit --ignore RUSTSEC-2023-0071
+      - name: Run full test suite
+        run: ./scripts/ci-test.sh --skip-db-init
+        env:
+          # Override sccache for specific commands in script
+          RUSTC_WRAPPER: sccache
 
       - name: Upload test results
         if: failure()

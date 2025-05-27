@@ -17,7 +17,6 @@ env:
   RUST_BACKTRACE: full
   SQLX_OFFLINE: true
   SCCACHE_GHA_ENABLED: true
-  RUSTC_WRAPPER: sccache
 
 jobs:
   # Extended test matrix
@@ -85,18 +84,14 @@ jobs:
           cargo binstall cargo-nextest
           cargo binstall cargo-audit
 
-      - name: Setup database
-        run: |
-          mkdir -p .sqlx-data
-          rm -f .sqlx-data/tagbox.db
-          touch .sqlx-data/tagbox.db
-          DATABASE_URL="sqlite:.sqlx-data/tagbox.db" cargo run --bin tagbox-init-db
-          cd tagbox-core && DATABASE_URL="sqlite:../.sqlx-data/tagbox.db" cargo sqlx prepare -- --lib
+      - name: Make scripts executable
+        run: chmod +x scripts/*.sh
 
-      - name: Run full CI test suite
-        run: |
-          chmod +x scripts/ci-test.sh
-          ./scripts/ci-test.sh --verbose
+      - name: Run nightly test suite
+        run: ./scripts/ci-nightly.sh
+        env:
+          # Override sccache for specific commands in script
+          RUSTC_WRAPPER: sccache
 
       - name: Upload test artifacts
         if: always()

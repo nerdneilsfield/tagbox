@@ -178,6 +178,8 @@ fi
 
 # Step 4: Clippy lints
 log "Running clippy lints..."
+# Disable sccache for clippy to avoid conflicts
+unset RUSTC_WRAPPER
 if cargo clippy --all-targets --all-features -- -D warnings 2>&1 | tee .ci-reports/clippy.log; then
     success "Clippy check passed"
 else
@@ -230,7 +232,8 @@ fi
 
 # Step 8: Security audit
 log "Running security audit..."
-if cargo audit 2>&1 | tee .ci-reports/audit.log; then
+# Use audit.toml to ignore known issues
+if cargo audit --ignore RUSTSEC-2023-0071 2>&1 | tee .ci-reports/audit.log; then
     success "Security audit passed"
 else
     warning "Security vulnerabilities found (non-blocking)"
