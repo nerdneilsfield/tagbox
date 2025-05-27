@@ -127,7 +127,7 @@ impl FileValidator {
                     });
                 }
 
-                let hash_type = HashType::from_str(&self.config.hash.algorithm)?;
+                let hash_type = HashType::from_string(&self.config.hash.algorithm)?;
                 let current_hash = calculate_file_hash_with_type(&absolute_path, hash_type).await?;
 
                 if current_hash != stored_hash {
@@ -179,7 +179,7 @@ impl FileValidator {
         let metadata = fs::metadata(&full_path).await?;
         let new_size = metadata.len() as i64;
 
-        let hash_type = HashType::from_str(&self.config.hash.algorithm)?;
+        let hash_type = HashType::from_string(&self.config.hash.algorithm)?;
         let new_hash = calculate_file_hash_with_type(&full_path, hash_type).await?;
 
         let mut tx = self.pool.begin().await?;
@@ -270,7 +270,11 @@ impl FileValidator {
             source: None,
             path: self.config.import.paths.storage_dir.join(&relative_path),
             original_path: None,
-            original_filename: relative_path.split('/').last().unwrap_or("").to_string(),
+            original_filename: relative_path
+                .split('/')
+                .next_back()
+                .unwrap_or("")
+                .to_string(),
             category1: "未分类".to_string(),
             category2: None,
             category3: None,

@@ -227,11 +227,11 @@ run-tui:
 
 # Check code formatting
 fmt-check:
-    cargo fmt --all -- --check
+    cargo fmt -p tagbox-core -p tagbox-cli -p tagbox-tui -p tagbox-gui -p tagbox-config -p tagbox-tools -- --check
 
 # Format code
 fmt:
-    cargo fmt --all
+    cargo fmt -p tagbox-core -p tagbox-cli -p tagbox-tui -p tagbox-gui -p tagbox-config -p tagbox-tools
 
 # Run clippy lints
 clippy:

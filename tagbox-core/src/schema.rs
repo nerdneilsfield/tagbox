@@ -1,13 +1,31 @@
 use crate::errors::{Result, TagboxError};
-use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
+use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
 use std::fs;
 use std::path::Path;
 use tracing::{info, warn};
-// use libsqlite3_sys::{sqlite3, sqlite3_db_handle};
-// use signal_tokenizer::{CJKTokenizer, register_tokenizer};
 
 pub struct Database {
     pool: SqlitePool,
+}
+
+// Signal FTS5 extension entry point
+extern "C" {
+    fn signal_fts5_tokenizer_init(
+        db: *mut std::ffi::c_void,
+        pz_err_msg: *mut *mut std::os::raw::c_char,
+        p_api: *const std::ffi::c_void,
+    ) -> std::os::raw::c_int;
+}
+
+// 添加sqlite3_auto_extension函数绑定
+extern "C" {
+    fn sqlite3_auto_extension(
+        xEntryPoint: unsafe extern "C" fn(
+            db: *mut std::ffi::c_void,
+            pz_err_msg: *mut *mut std::os::raw::c_char,
+            p_api: *const std::ffi::c_void,
+        ) -> std::os::raw::c_int,
+    ) -> std::os::raw::c_int;
 }
 
 impl Database {
@@ -18,10 +36,19 @@ impl Database {
             fs::create_dir_all(parent).map_err(TagboxError::Io)?;
         }
 
+        // 在创建任何连接之前注册Signal tokenizer为自动扩展
+        register_signal_auto_extension();
+
         let url = format!("sqlite:{}", path.to_string_lossy());
 
         let pool = SqlitePoolOptions::new()
             .max_connections(5)
+            .after_connect(|conn, _meta| {
+                Box::pin(async move {
+                    // 启用FTS5扩展并测试Signal tokenizer
+                    enable_fts5_and_signal_tokenizer(conn).await
+                })
+            })
             .connect(&url)
             .await
             .map_err(TagboxError::Database)?;
@@ -37,9 +64,6 @@ impl Database {
             .execute(&pool)
             .await
             .map_err(TagboxError::Database)?;
-
-        // 注册 Signal-FTS5 扩展
-        // register_signal_fts5_extension(&pool).await?;
 
         Ok(Database { pool })
     }
@@ -206,7 +230,7 @@ impl Database {
                 tags,
                 content='files',
                 content_rowid='rowid',
-                tokenize='signal_cjk porter unicode61 remove_diacritics 1'
+                tokenize='signal_tokenizer unicode61 remove_diacritics 1'
             );
             "#,
         )
@@ -214,10 +238,10 @@ impl Database {
         .await;
 
         match create_fts_result {
-            Ok(_) => info!("FTS5虚拟表创建成功，使用 Signal CJK 分词器"),
+            Ok(_) => info!("FTS5虚拟表创建成功，使用 Signal Tokenizer 分词器"),
             Err(e) => {
                 warn!(
-                    "无法创建带Signal CJK分词器的FTS5表，尝试使用标准分词器: {}",
+                    "无法创建带Signal Tokenizer分词器的FTS5表，尝试使用标准分词器: {}",
                     e
                 );
 
@@ -398,6 +422,139 @@ impl Database {
     /// 获取数据库连接池引用
     pub fn pool(&self) -> &SqlitePool {
         &self.pool
+    }
+}
+
+/// 启用FTS5并测试Signal tokenizer
+async fn enable_fts5_and_signal_tokenizer(conn: &mut sqlx::SqliteConnection) -> sqlx::Result<()> {
+    // 首先检查SQLite编译选项
+    check_sqlite_compile_options(conn).await;
+
+    // 直接测试FTS5表创建而不依赖fts5_version()函数
+    test_fts5_table_creation(conn).await;
+
+    Ok(())
+}
+
+/// 测试FTS5表创建
+async fn test_fts5_table_creation(conn: &mut sqlx::SqliteConnection) {
+    // 尝试创建一个简单的FTS5表来测试
+    let test_result =
+        sqlx::query("CREATE VIRTUAL TABLE IF NOT EXISTS test_fts5_basic USING fts5(content)")
+            .execute(&mut *conn)
+            .await;
+
+    match test_result {
+        Ok(_) => {
+            tracing::info!("✅ FTS5 is working! Can create FTS5 tables");
+
+            // 清理测试表
+            let _ = sqlx::query("DROP TABLE IF EXISTS test_fts5_basic")
+                .execute(&mut *conn)
+                .await;
+
+            // 测试Signal tokenizer是否可用
+            test_signal_tokenizer_availability(conn).await;
+        }
+        Err(e) => {
+            tracing::warn!("❌ FTS5 table creation failed: {:?}", e);
+            tracing::info!("Will use fallback search without FTS5");
+        }
+    }
+}
+
+/// 检查SQLite编译选项
+async fn check_sqlite_compile_options(conn: &mut sqlx::SqliteConnection) {
+    match sqlx::query("PRAGMA compile_options")
+        .fetch_all(&mut *conn)
+        .await
+    {
+        Ok(rows) => {
+            tracing::info!("SQLite compile options:");
+            let mut has_fts5 = false;
+            for row in rows {
+                if let Ok(option) = row.try_get::<String, _>(0) {
+                    tracing::info!("  {}", option);
+                    if option.contains("ENABLE_FTS5") {
+                        has_fts5 = true;
+                    }
+                }
+            }
+            if has_fts5 {
+                tracing::info!("✅ FTS5 is enabled in SQLite compilation");
+            } else {
+                tracing::warn!("❌ FTS5 is not enabled in SQLite compilation");
+            }
+        }
+        Err(e) => {
+            tracing::warn!("Could not check SQLite compile options: {:?}", e);
+        }
+    }
+}
+
+/// 测试Signal tokenizer是否可用
+async fn test_signal_tokenizer_availability(conn: &mut sqlx::SqliteConnection) {
+    // 首先尝试注册Signal tokenizer
+    register_signal_tokenizer_via_ffi(conn).await;
+
+    // 创建一个临时表来测试Signal tokenizer
+    let test_result = sqlx::query(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS test_signal_tokenizer USING fts5(content, tokenize='signal_tokenizer')"
+    ).execute(&mut *conn).await;
+
+    match test_result {
+        Ok(_) => {
+            tracing::info!("✅ Signal tokenizer is available and working");
+
+            // 清理测试表
+            let _ = sqlx::query("DROP TABLE IF EXISTS test_signal_tokenizer")
+                .execute(&mut *conn)
+                .await;
+        }
+        Err(e) => {
+            tracing::warn!("❌ Signal tokenizer not available: {:?}", e);
+            tracing::info!("Will fall back to standard FTS5 tokenizers");
+        }
+    }
+}
+
+/// 通过FFI直接注册Signal tokenizer
+async fn register_signal_tokenizer_via_ffi(conn: &mut sqlx::SqliteConnection) {
+    // 尝试通过SQL查询来正确初始化Signal tokenizer
+    // 这样会获得正确的API routines指针
+    let init_result = sqlx::query("SELECT load_extension('signal_tokenizer')")
+        .fetch_optional(&mut *conn)
+        .await;
+
+    match init_result {
+        Ok(_) => {
+            tracing::info!("Signal tokenizer loaded via load_extension");
+        }
+        Err(_) => {
+            // 如果load_extension失败，尝试直接注册
+            tracing::info!("Attempting direct Signal tokenizer registration via static linking");
+
+            // 使用auto extension机制
+            tracing::info!(
+                "Signal tokenizer auto extension should have been registered at startup"
+            );
+        }
+    }
+}
+
+/// 注册Signal tokenizer为SQLite自动扩展
+fn register_signal_auto_extension() {
+    unsafe {
+        let result = sqlite3_auto_extension(signal_fts5_tokenizer_init);
+        if result == 0 {
+            // SQLITE_OK
+            tracing::info!("✅ Signal tokenizer registered as auto extension successfully");
+        } else {
+            tracing::warn!(
+                "❌ Failed to register Signal tokenizer as auto extension: error code {}",
+                result
+            );
+        }
     }
 }
 

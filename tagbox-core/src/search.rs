@@ -224,10 +224,10 @@ impl Searcher {
         let mut sql = String::from(
             r#"
             SELECT 
-                f.id, f.title, f.original_filename, f.hash, f.current_hash,
-                f.path, f.original_path, f.category1, f.category2, f.category3,
+                f.id, f.title, f.filename, f.initial_hash, f.current_hash,
+                f.relative_path, f.year, f.publisher, f.category_id,
                 f.summary,
-                f.created_at, f.updated_at, f.last_accessed, f.is_deleted
+                f.created_at, f.updated_at, f.is_deleted
             FROM files f
             "#,
         );
@@ -326,10 +326,7 @@ impl Searcher {
 
         // 处理分类过滤
         if let Some(category) = &parsed.category {
-            where_clauses
-                .push("(f.category1 = ? OR f.category2 = ? OR f.category3 = ?)".to_string());
-            params.push(category.clone());
-            params.push(category.clone());
+            where_clauses.push("f.category_id = ?".to_string());
             params.push(category.clone());
         }
 
@@ -445,26 +442,26 @@ impl Searcher {
             let tags = self.get_file_tags(file_id).await?;
 
             // 获取额外元数据
-            let metadata = self.get_file_metadata(file_id).await?;
+            let _metadata = self.get_file_metadata(file_id).await?;
 
-            // 构建 FileEntry
+            // 构建 FileEntry - 需要适配当前的数据库schema
             let entry = FileEntry {
                 id: row.get("id"),
                 title: row.get("title"),
                 authors,
-                year: metadata.get("year").and_then(|v| v.parse::<i32>().ok()),
-                publisher: metadata.get("publisher").cloned(),
-                source: metadata.get("source").cloned(),
-                path: PathBuf::from(row.get::<String, _>("path")),
-                original_path: row
-                    .get::<Option<String>, _>("original_path")
-                    .map(PathBuf::from),
-                original_filename: row.get("original_filename"),
-                hash: row.get("hash"),
+                year: row.get::<Option<i32>, _>("year"),
+                publisher: row.get::<Option<String>, _>("publisher"),
+                source: None, // source_url字段暂时不包含在查询中
+                path: PathBuf::from(row.get::<String, _>("relative_path")),
+                original_path: None, // 暂时没有original_path字段
+                original_filename: row.get("filename"),
+                hash: row.get("initial_hash"),
                 current_hash: row.get("current_hash"),
-                category1: row.get("category1"),
-                category2: row.get("category2"),
-                category3: row.get("category3"),
+                category1: row
+                    .get::<Option<String>, _>("category_id")
+                    .unwrap_or_default(), // 使用category_id作为category1
+                category2: None, // 暂时没有category2字段
+                category3: None, // 暂时没有category3字段
                 tags,
                 summary: row.get("summary"),
                 created_at: chrono::DateTime::parse_from_rfc3339(row.get::<&str, _>("created_at"))
@@ -473,11 +470,7 @@ impl Searcher {
                 updated_at: chrono::DateTime::parse_from_rfc3339(row.get::<&str, _>("updated_at"))
                     .unwrap_or_else(|_| chrono::Utc::now().into())
                     .with_timezone(&chrono::Utc),
-                last_accessed: row.get::<Option<&str>, _>("last_accessed").and_then(|t| {
-                    chrono::DateTime::parse_from_rfc3339(t)
-                        .ok()
-                        .map(|dt| dt.with_timezone(&chrono::Utc))
-                }),
+                last_accessed: None, // 暂时没有last_accessed字段
                 is_deleted: row.get::<i64, _>("is_deleted") != 0,
                 file_metadata: None, // TODO: 从数据库加载
                 type_metadata: None, // TODO: 从数据库加载
@@ -513,7 +506,7 @@ impl Searcher {
 
         // 1. 精确短语匹配（最高权重）
         if terms.len() > 1 {
-            query_parts.push(format!("\"{}\"^10", text));
+            query_parts.push(format!("\"{}\"", text));
         }
 
         // 2. 个别词语匹配（较高权重）
@@ -521,17 +514,14 @@ impl Searcher {
             // 对每个词使用 Signal 的拼音特性和模糊匹配
 
             // 精确匹配（高权重）
-            query_parts.push(format!("{}^5", term));
+            query_parts.push(term.to_string());
 
             // 前缀匹配（中等权重）
-            query_parts.push(format!("{}*^3", term));
-
-            // 拼音匹配（适用于中文搜索，中低权重）
-            // Signal FTS5会自动匹配拼音
+            query_parts.push(format!("{}*", term));
 
             // 模糊匹配（低权重）
             if term.len() > 2 {
-                query_parts.push(format!("NEAR({}^0.5, 2)", term));
+                query_parts.push(format!("NEAR({}, 2)", term));
             }
         }
 
@@ -556,16 +546,16 @@ impl Searcher {
 
         // 精确匹配整个短语(优先级最高)
         if terms.len() > 1 {
-            query_parts.push(format!("\"{}\"^10", text));
+            query_parts.push(format!("\"{}\"", text));
         }
 
         // 各个词语的匹配
         for term in &terms {
             // 精确匹配（优先级较高）
-            query_parts.push(format!("{}^5", term));
+            query_parts.push(term.to_string());
 
             // 前缀匹配（优先级中等）
-            query_parts.push(format!("{}*^2", term));
+            query_parts.push(format!("{}*", term));
 
             // 模糊匹配 (创建一些变体, 优先级低)
             if term.len() > 3 {
@@ -624,8 +614,8 @@ impl Searcher {
             terms.push(new_chars.iter().collect());
         }
 
-        // 返回所有生成的模糊匹配项，每个都赋予较低的权重
-        terms.iter().map(|t| format!("{}^0.5", t)).collect()
+        // 返回所有生成的模糊匹配项
+        terms
     }
 
     /// 解析查询DSL

@@ -31,7 +31,7 @@ pub enum HashType {
 
 impl HashType {
     /// 从字符串解析哈希类型
-    pub fn from_str(s: &str) -> Result<Self> {
+    pub fn from_string(s: &str) -> Result<Self> {
         match s.to_lowercase().as_str() {
             "md5" => Ok(HashType::Md5),
             "sha256" => Ok(HashType::Sha256),

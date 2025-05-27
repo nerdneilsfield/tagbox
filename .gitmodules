@@ -1,0 +1,3 @@
+[submodule "signal-fts5"]
+	path = signal-fts5
+	url = https://github.com/signalapp/Signal-FTS5-Extension.git

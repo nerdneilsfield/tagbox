@@ -53,7 +53,7 @@ impl Importer {
         }
 
         // 2. 计算文件哈希
-        let hash_type = HashType::from_str(&self.config.hash.algorithm)?;
+        let hash_type = HashType::from_string(&self.config.hash.algorithm)?;
         let hash = calculate_file_hash_with_type(file_path, hash_type).await?;
         debug!("文件哈希 ({:?}): {}", hash_type, hash);
 
@@ -117,7 +117,7 @@ impl Importer {
         }
 
         // 2. 计算文件哈希
-        let hash_type = HashType::from_str(&self.config.hash.algorithm)?;
+        let hash_type = HashType::from_string(&self.config.hash.algorithm)?;
         let hash = calculate_file_hash_with_type(file_path, hash_type).await?;
         debug!("文件哈希 ({:?}): {}", hash_type, hash);
 
