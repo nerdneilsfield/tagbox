@@ -210,30 +210,139 @@ async fn import_directory(
         return Ok(Vec::new());
     }
 
-    let progress = create_progress_bar(files.len() as u64, "Importing files");
+    println!("Found {} files to import", files.len());
 
-    // Convert to Path references for the core function
-    let file_refs: Vec<&Path> = files.iter().map(|p| p.as_path()).collect();
+    // 阶段1：并行提取元数据
+    let metadata_progress = create_progress_bar(files.len() as u64, "Extracting metadata");
 
-    // Use the core batch import function
-    let entries = tagbox_core::extract_and_import_files(&file_refs, config).await?;
+    // 使用基础的 tokio::spawn 来实现并行处理
+    let mut metadata_tasks = Vec::new();
 
-    // Handle delete option for successfully imported files
-    if delete && !entries.is_empty() {
-        progress.set_message("Deleting original files...");
-        for file in &files {
-            if let Err(e) = std::fs::remove_file(file) {
-                log::warn!("Failed to delete {}: {}", file.display(), e);
+    for file in &files {
+        let file_clone = file.clone();
+        let config_clone = config.clone();
+        let progress_clone = metadata_progress.clone();
+
+        let task = tokio::spawn(async move {
+            let result = tagbox_core::extract_metainfo(&file_clone, &config_clone).await;
+            progress_clone.inc(1);
+            (file_clone, result)
+        });
+
+        metadata_tasks.push(task);
+    }
+
+    // 等待所有元数据提取任务完成
+    let mut metadata_pairs = Vec::new();
+    let mut extraction_errors = Vec::new();
+
+    for task in metadata_tasks {
+        match task.await {
+            Ok((file_path, metadata_result)) => match metadata_result {
+                Ok(metadata) => {
+                    metadata_pairs.push((file_path, metadata));
+                }
+                Err(e) => {
+                    log::warn!(
+                        "Failed to extract metadata from {}: {}",
+                        file_path.display(),
+                        e
+                    );
+                    extraction_errors.push(e);
+                }
+            },
+            Err(join_err) => {
+                log::error!("Task join error: {}", join_err);
+                // 将join错误转换为TagboxError
+                let tagbox_err = tagbox_core::errors::TagboxError::ImportError(format!(
+                    "Task failed: {}",
+                    join_err
+                ));
+                extraction_errors.push(tagbox_err);
             }
-        }
-
-        // Remove empty directories if all files were deleted
-        if let Err(e) = std::fs::remove_dir_all(path) {
-            log::warn!("Failed to remove directory {}: {}", path.display(), e);
         }
     }
 
-    progress.finish_with_message("Import completed");
+    let metadata_finish_msg = format!(
+        "Metadata extraction completed: {} succeeded, {} failed",
+        metadata_pairs.len(),
+        extraction_errors.len()
+    );
+    metadata_progress.finish_with_message(metadata_finish_msg);
+
+    if metadata_pairs.is_empty() {
+        return Err(CliError::CommandFailed(
+            "No files had extractable metadata".to_string(),
+        ));
+    }
+
+    // 阶段2：串行导入到数据库
+    let import_progress = create_progress_bar(metadata_pairs.len() as u64, "Importing to database");
+
+    let mut entries = Vec::new();
+    let mut import_errors = Vec::new();
+
+    for (file_path, metadata) in metadata_pairs {
+        let filename = file_path.file_name().unwrap_or_default().to_string_lossy();
+        let import_msg = format!("Importing {}", filename);
+        import_progress.set_message(import_msg);
+
+        match tagbox_core::import_file(&file_path, metadata, config).await {
+            Ok(entry) => {
+                entries.push(entry);
+                import_progress.inc(1);
+            }
+            Err(e) => {
+                log::warn!("Failed to import {}: {}", file_path.display(), e);
+                import_errors.push((file_path, e));
+                import_progress.inc(1);
+            }
+        }
+    }
+
+    let import_finish_msg = format!(
+        "Import completed: {} succeeded, {} failed",
+        entries.len(),
+        import_errors.len()
+    );
+    import_progress.finish_with_message(import_finish_msg);
+
+    // Handle delete option for successfully imported files
+    if delete && !entries.is_empty() {
+        let delete_progress = create_progress_bar(entries.len() as u64, "Deleting original files");
+
+        for entry in &entries {
+            // 找到对应的原始文件路径来删除
+            if let Some(original_file) = files.iter().find(|f| {
+                f.file_name().unwrap_or_default().to_string_lossy() == entry.original_filename
+            }) {
+                if let Err(e) = std::fs::remove_file(original_file) {
+                    log::warn!("Failed to delete {}: {}", original_file.display(), e);
+                }
+            }
+            delete_progress.inc(1);
+        }
+
+        delete_progress.finish_with_message("File deletion completed");
+
+        // Remove empty directories if all files were deleted
+        if entries.len() == files.len() {
+            if let Err(e) = std::fs::remove_dir_all(path) {
+                log::warn!("Failed to remove directory {}: {}", path.display(), e);
+            }
+        }
+    }
+
+    // 显示最终统计
+    println!("Import summary:");
+    println!("  Total files found: {}", files.len());
+    println!(
+        "  Metadata extraction failures: {}",
+        extraction_errors.len()
+    );
+    println!("  Import failures: {}", import_errors.len());
+    println!("  Successfully imported: {}", entries.len());
+
     Ok(entries)
 }
 
