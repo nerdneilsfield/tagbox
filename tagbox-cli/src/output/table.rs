@@ -153,7 +153,7 @@ pub fn print_preview_table(entry: &FileEntry) -> Result<()> {
     }
 
     if entry.is_deleted {
-        rows.push(["Status".to_string(), "DELETED".bright_red().to_string()]);
+        rows.push(["Status".to_string(), "DELETED".to_string()]);
     }
 
     rows.push(["Path".to_string(), entry.path.to_string_lossy().to_string()]);
@@ -161,20 +161,14 @@ pub fn print_preview_table(entry: &FileEntry) -> Result<()> {
     // Parse and display file_metadata JSON if available
     if let Some(file_metadata) = &entry.file_metadata {
         rows.push(["".to_string(), "".to_string()]); // Empty row as separator
-        rows.push([
-            "📄 File Metadata".bright_blue().bold().to_string(),
-            "".to_string(),
-        ]);
+        rows.push(["File Metadata".to_string(), "".to_string()]);
 
         // Special handling for PDF text content
         if let Some(pdf_data) = file_metadata.get("pdf") {
             if let Some(text_preview) = pdf_data.get("text_preview") {
                 if let Some(preview_str) = text_preview.as_str() {
                     if !preview_str.trim().is_empty() {
-                        rows.push([
-                            "  📖 Text Preview".bright_green().to_string(),
-                            preview_str.to_string(),
-                        ]);
+                        rows.push(["  Text Preview".to_string(), preview_str.to_string()]);
                     }
                 }
             }
@@ -186,8 +180,8 @@ pub fn print_preview_table(entry: &FileEntry) -> Result<()> {
                         if let Some(text_length) = pdf_data.get("text_length") {
                             if let Some(length) = text_length.as_u64() {
                                 rows.push([
-                                    "  📊 Full Text Length".bright_cyan().to_string(),
-                                    format!("{} characters", length).bright_yellow().to_string(),
+                                    "  Full Text Length".to_string(),
+                                    format!("{} characters", length),
                                 ]);
                             }
                         }
@@ -202,10 +196,7 @@ pub fn print_preview_table(entry: &FileEntry) -> Result<()> {
     // Parse and display type_metadata JSON if available
     if let Some(type_metadata) = &entry.type_metadata {
         rows.push(["".to_string(), "".to_string()]); // Empty row as separator
-        rows.push([
-            "📋 Type Metadata".bright_green().bold().to_string(),
-            "".to_string(),
-        ]);
+        rows.push(["Type Metadata".to_string(), "".to_string()]);
 
         add_json_fields_to_rows(&mut rows, type_metadata, "");
     }
@@ -233,9 +224,9 @@ fn add_json_fields_to_rows(rows: &mut Vec<[String; 2]>, json_value: &Value, pref
         Value::Object(map) => {
             for (key, value) in map {
                 let display_key = if prefix.is_empty() {
-                    format!("  {}", key.bright_cyan())
+                    format!("  {}", key)
                 } else {
-                    format!("  {}.{}", prefix.bright_cyan(), key.bright_cyan())
+                    format!("  {}.{}", prefix, key)
                 };
 
                 match value {
@@ -244,63 +235,47 @@ fn add_json_fields_to_rows(rows: &mut Vec<[String; 2]>, json_value: &Value, pref
                         if key == "full_text" && s.len() > 500 {
                             rows.push([
                                 display_key,
-                                format!("[{} characters - use search to find content]", s.len())
-                                    .dimmed()
-                                    .to_string(),
+                                format!("[{} characters - use search to find content]", s.len()),
                             ]);
                         } else if s.len() > 200 {
                             // Truncate other long strings
-                            rows.push([display_key, format!("{}...", &s[..200]).to_string()]);
+                            rows.push([display_key, format!("{}...", &s[..200])]);
                         } else {
                             rows.push([display_key, s.clone()]);
                         }
                     }
                     Value::Number(n) => {
-                        rows.push([display_key, n.to_string().bright_yellow().to_string()]);
+                        rows.push([display_key, n.to_string()]);
                     }
                     Value::Bool(b) => {
-                        let bool_str = if *b {
-                            "true".bright_green()
-                        } else {
-                            "false".bright_red()
-                        };
+                        let bool_str = if *b { "true" } else { "false" };
                         rows.push([display_key, bool_str.to_string()]);
                     }
                     Value::Array(arr) => {
-                        let array_str = format!("[{} items]", arr.len()).bright_purple();
-                        rows.push([display_key, array_str.to_string()]);
+                        let array_str = format!("[{} items]", arr.len());
+                        rows.push([display_key, array_str]);
 
                         // Show first few items of array
                         for (i, item) in arr.iter().take(3).enumerate() {
-                            let item_key = format!("    [{}]", i).bright_white();
+                            let item_key = format!("    [{}]", i);
                             match item {
                                 Value::String(s) => rows.push([item_key.to_string(), s.clone()]),
                                 Value::Number(n) => {
                                     rows.push([item_key.to_string(), n.to_string()])
                                 }
                                 Value::Bool(b) => {
-                                    let bool_str = if *b {
-                                        "true".bright_green()
-                                    } else {
-                                        "false".bright_red()
-                                    };
+                                    let bool_str = if *b { "true" } else { "false" };
                                     rows.push([item_key.to_string(), bool_str.to_string()]);
                                 }
-                                _ => rows.push([
-                                    item_key.to_string(),
-                                    format!("{}", item).dimmed().to_string(),
-                                ]),
+                                _ => rows.push([item_key.to_string(), format!("{}", item)]),
                             }
                         }
                         if arr.len() > 3 {
-                            rows.push([
-                                format!("    ...").dimmed().to_string(),
-                                format!("({} more)", arr.len() - 3).dimmed().to_string(),
-                            ]);
+                            rows.push(["    ...".to_string(), format!("({} more)", arr.len() - 3)]);
                         }
                     }
                     Value::Object(_) => {
-                        rows.push([display_key.clone(), "[object]".bright_purple().to_string()]);
+                        rows.push([display_key.clone(), "[object]".to_string()]);
                         let new_prefix = if prefix.is_empty() {
                             key.clone()
                         } else {
@@ -309,17 +284,14 @@ fn add_json_fields_to_rows(rows: &mut Vec<[String; 2]>, json_value: &Value, pref
                         add_json_fields_to_rows(rows, value, &new_prefix);
                     }
                     Value::Null => {
-                        rows.push([display_key, "null".dimmed().to_string()]);
+                        rows.push([display_key, "null".to_string()]);
                     }
                 }
             }
         }
         _ => {
             // Handle non-object root values
-            rows.push([
-                format!("  {}", "value".bright_cyan()),
-                format!("{}", json_value).bright_white().to_string(),
-            ]);
+            rows.push([format!("  {}", "value"), format!("{}", json_value)]);
         }
     }
 }

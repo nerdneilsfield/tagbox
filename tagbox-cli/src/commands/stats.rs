@@ -1,5 +1,5 @@
 use crate::utils::error::Result;
-use colored::*;
+// removed: use colored::*;
 use std::collections::HashMap;
 use tabled::{
     builder::Builder,
@@ -45,36 +45,23 @@ pub async fn handle_stats(config: &AppConfig) -> Result<()> {
 
 /// Print general statistics
 fn print_general_stats(files: &[FileEntry]) -> Result<()> {
-    println!("{}", "📊 General Statistics".bright_blue().bold());
+    println!("General Statistics");
 
     let mut builder = Builder::default();
-    builder.push_record(["Metric".bold().to_string(), "Value".bold().to_string()]);
+    builder.push_record(["Metric", "Value"]);
 
     let deleted_count = files.iter().filter(|f| f.is_deleted).count();
     let active_count = files.len() - deleted_count;
 
-    builder.push_record([
-        "Total files",
-        &format!("{}", files.len().to_string().bright_green()),
-    ]);
-    builder.push_record([
-        "Active files",
-        &format!("{}", active_count.to_string().bright_green()),
-    ]);
-    builder.push_record([
-        "Deleted files",
-        &format!("{}", deleted_count.to_string().bright_red()),
-    ]);
+    builder.push_record(["Total files", &files.len().to_string()]);
+    builder.push_record(["Active files", &active_count.to_string()]);
+    builder.push_record(["Deleted files", &deleted_count.to_string()]);
 
     if let Some(oldest) = files.iter().min_by_key(|f| f.created_at) {
         let oldest_info = format!(
             "{} ({})",
             oldest.title.chars().take(30).collect::<String>(),
-            oldest
-                .created_at
-                .format("%Y-%m-%d")
-                .to_string()
-                .bright_yellow()
+            oldest.created_at.format("%Y-%m-%d").to_string()
         );
         builder.push_record(["Oldest file", &oldest_info]);
     }
@@ -83,11 +70,7 @@ fn print_general_stats(files: &[FileEntry]) -> Result<()> {
         let newest_info = format!(
             "{} ({})",
             newest.title.chars().take(30).collect::<String>(),
-            newest
-                .created_at
-                .format("%Y-%m-%d")
-                .to_string()
-                .bright_yellow()
+            newest.created_at.format("%Y-%m-%d").to_string()
         );
         builder.push_record(["Newest file", &newest_info]);
     }
@@ -119,7 +102,7 @@ fn print_tag_stats(files: &[FileEntry]) -> Result<()> {
     }
 
     if tag_counts.is_empty() {
-        println!("{}", "🏷️  No tags found".bright_yellow());
+        println!("No tags found");
         println!();
         return Ok(());
     }
@@ -127,16 +110,13 @@ fn print_tag_stats(files: &[FileEntry]) -> Result<()> {
     let mut sorted_tags: Vec<_> = tag_counts.into_iter().collect();
     sorted_tags.sort_by(|a, b| b.1.cmp(&a.1));
 
-    println!("{}", "🏷️  Tag Statistics (Top 10)".bright_blue().bold());
+    println!("Tag Statistics (Top 10)");
 
     let mut builder = Builder::default();
-    builder.push_record(["Tag".bold().to_string(), "Count".bold().to_string()]);
+    builder.push_record(["Tag", "Count"]);
 
     for (tag, count) in sorted_tags.iter().take(10) {
-        builder.push_record([
-            tag.bright_cyan().to_string(),
-            count.to_string().bright_green().to_string(),
-        ]);
+        builder.push_record([tag.to_string(), count.to_string()]);
     }
 
     let table = builder
@@ -147,11 +127,7 @@ fn print_tag_stats(files: &[FileEntry]) -> Result<()> {
         .to_string();
 
     println!("{}", table);
-    println!(
-        "{}: {}",
-        "Total unique tags".bright_white().bold(),
-        sorted_tags.len().to_string().bright_green()
-    );
+    println!("Total unique tags: {}", sorted_tags.len().to_string());
     println!();
     Ok(())
 }
@@ -171,7 +147,7 @@ fn print_author_stats(files: &[FileEntry]) -> Result<()> {
     }
 
     if author_counts.is_empty() {
-        println!("{}", "👤 No authors found".bright_yellow());
+        println!("No authors found");
         println!();
         return Ok(());
     }
@@ -179,16 +155,13 @@ fn print_author_stats(files: &[FileEntry]) -> Result<()> {
     let mut sorted_authors: Vec<_> = author_counts.into_iter().collect();
     sorted_authors.sort_by(|a, b| b.1.cmp(&a.1));
 
-    println!("{}", "👤 Author Statistics (Top 10)".bright_blue().bold());
+    println!("Author Statistics (Top 10)");
 
     let mut builder = Builder::default();
-    builder.push_record(["Author".bold().to_string(), "Files".bold().to_string()]);
+    builder.push_record(["Author", "Files"]);
 
     for (author, count) in sorted_authors.iter().take(10) {
-        builder.push_record([
-            author.bright_magenta().to_string(),
-            count.to_string().bright_green().to_string(),
-        ]);
+        builder.push_record([author.to_string(), count.to_string()]);
     }
 
     let table = builder
@@ -199,11 +172,7 @@ fn print_author_stats(files: &[FileEntry]) -> Result<()> {
         .to_string();
 
     println!("{}", table);
-    println!(
-        "{}: {}",
-        "Total unique authors".bright_white().bold(),
-        sorted_authors.len().to_string().bright_green()
-    );
+    println!("Total unique authors: {}", sorted_authors.len().to_string());
     println!();
     Ok(())
 }
@@ -223,21 +192,14 @@ fn print_category_stats(files: &[FileEntry]) -> Result<()> {
     let mut sorted_categories: Vec<_> = category_counts.into_iter().collect();
     sorted_categories.sort_by(|a, b| b.1.cmp(&a.1));
 
-    println!("{}", "📁 Category Statistics".bright_blue().bold());
+    println!("Category Statistics");
 
     let mut builder = Builder::default();
-    builder.push_record(["Category".bold().to_string(), "Files".bold().to_string()]);
+    builder.push_record(["Category", "Files"]);
 
     for (category, count) in sorted_categories {
-        let category_display = if category == "uncategorized" {
-            category.bright_red().to_string()
-        } else {
-            category.bright_cyan().to_string()
-        };
-        builder.push_record([
-            category_display,
-            count.to_string().bright_green().to_string(),
-        ]);
+        let category_display = category.to_string();
+        builder.push_record([category_display, count.to_string()]);
     }
 
     let table = builder
@@ -276,26 +238,17 @@ fn print_year_stats(files: &[FileEntry]) -> Result<()> {
     let mut sorted_years: Vec<_> = year_counts.into_iter().collect();
     sorted_years.sort_by(|a, b| b.0.cmp(&a.0)); // Sort by year descending
 
-    println!(
-        "{}",
-        "📅 Year Statistics (Last 10 years)".bright_blue().bold()
-    );
+    println!("Year Statistics (Last 10 years)");
 
     let mut builder = Builder::default();
-    builder.push_record(["Year".bold().to_string(), "Files".bold().to_string()]);
+    builder.push_record(["Year", "Files"]);
 
     for (year, count) in sorted_years.iter().take(10) {
-        builder.push_record([
-            year.to_string().bright_yellow().to_string(),
-            count.to_string().bright_green().to_string(),
-        ]);
+        builder.push_record([year.to_string(), count.to_string()]);
     }
 
     if no_year_count > 0 {
-        builder.push_record([
-            "Unknown".bright_red().to_string(),
-            no_year_count.to_string().bright_red().to_string(),
-        ]);
+        builder.push_record(["Unknown".to_string(), no_year_count.to_string()]);
     }
 
     let table = builder
@@ -332,7 +285,7 @@ fn print_access_stats(stats: &[tagbox_core::history::FileAccessStatsEntry]) -> R
         println!(
             "{}. {} (accessed {} times)",
             i + 1,
-            &stat.file_id[..8.min(stat.file_id.len())],
+            &stat.file_id[..8.min(stat.file_id.len())], // Keep short ID for readability
             stat.access_count
         );
     }
