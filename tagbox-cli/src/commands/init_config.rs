@@ -121,7 +121,7 @@ sync_mode = "NORMAL"
 
 [hash]
 # Hash algorithm for file integrity checking (blake2b, sha256)
-algorithm = "blake2b"
+algorithm = "xxh3_128"
 
 # Verify file hashes on import (slower but safer)
 verify_on_import = true
