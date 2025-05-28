@@ -92,7 +92,7 @@ impl Editor {
 
         // if let Some(rating) = update.rating {
         //     updates.push("rating = ?".to_string());
-        //     // QueryParam::Float was removed as it's not in QueryParam enum
+        //     // QueryParam::Float variant does not exist
         //     // params.push(QueryParam::Float(rating));
         // }
 
@@ -308,11 +308,12 @@ impl Editor {
         // 查询文件基本信息
         let file_row = sqlx::query!(
             r#"
-            SELECT 
+            SELECT
                 id, title, initial_hash, current_hash, relative_path, filename,
                 year, publisher, category_id, source_url, summary,
-                created_at, updated_at, is_deleted, deleted_at
-            FROM files 
+                created_at, updated_at, is_deleted, deleted_at,
+                file_metadata, type_metadata
+            FROM files
             WHERE id = ?
             "#,
             file_id
@@ -374,8 +375,14 @@ impl Editor {
                 .unwrap_or_else(|_| Utc::now()),
             last_accessed: None,
             is_deleted: file_row.is_deleted != 0,
-            file_metadata: None, // TODO: 从数据库加载
-            type_metadata: None, // TODO: 从数据库加载
+            file_metadata: file_row
+                .file_metadata
+                .as_deref()
+                .and_then(|s| serde_json::from_str(s).ok()),
+            type_metadata: file_row
+                .type_metadata
+                .as_deref()
+                .and_then(|s| serde_json::from_str(s).ok()),
         })
     }
 }

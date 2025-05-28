@@ -281,11 +281,15 @@ impl Importer {
         let file_metadata_str = metadata
             .file_metadata
             .as_ref()
-            .map(|v| serde_json::to_string(v).unwrap_or_default());
+            .map(|v| serde_json::to_string(v))
+            .transpose()
+            .map_err(TagboxError::from)?;
         let type_metadata_str = metadata
             .type_metadata
             .as_ref()
-            .map(|v| serde_json::to_string(v).unwrap_or_default());
+            .map(|v| serde_json::to_string(v))
+            .transpose()
+            .map_err(TagboxError::from)?;
 
         sqlx::query!(
             r#"
