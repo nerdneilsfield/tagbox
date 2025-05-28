@@ -130,5 +130,12 @@ verify_on_import = true
         database_path.display()
     );
 
-    Ok(config_content)
+    // On Windows, escape backslashes for TOML after all template substitution
+    let final_config = if cfg!(target_os = "windows") {
+        config_content.replace('\\', "\\\\")
+    } else {
+        config_content
+    };
+
+    Ok(final_config)
 }
