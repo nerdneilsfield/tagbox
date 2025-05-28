@@ -162,6 +162,36 @@ pub fn print_preview_table(entry: &FileEntry) -> Result<()> {
             "".to_string(),
         ]);
 
+        // Special handling for PDF text content
+        if let Some(pdf_data) = file_metadata.get("pdf") {
+            if let Some(text_preview) = pdf_data.get("text_preview") {
+                if let Some(preview_str) = text_preview.as_str() {
+                    if !preview_str.trim().is_empty() {
+                        rows.push([
+                            "  📖 Text Preview".bright_green().to_string(),
+                            preview_str.to_string(),
+                        ]);
+                    }
+                }
+            }
+
+            // Show if full text is available
+            if let Some(has_text) = pdf_data.get("has_text") {
+                if let Some(has_text_bool) = has_text.as_bool() {
+                    if has_text_bool {
+                        if let Some(text_length) = pdf_data.get("text_length") {
+                            if let Some(length) = text_length.as_u64() {
+                                rows.push([
+                                    "  📊 Full Text Length".bright_cyan().to_string(),
+                                    format!("{} characters", length).bright_yellow().to_string(),
+                                ]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         add_json_fields_to_rows(&mut rows, file_metadata, "");
     }
 
@@ -206,7 +236,20 @@ fn add_json_fields_to_rows(rows: &mut Vec<[String; 2]>, json_value: &Value, pref
 
                 match value {
                     Value::String(s) => {
-                        rows.push([display_key, s.clone()]);
+                        // Skip very long text fields like full_text in display
+                        if key == "full_text" && s.len() > 500 {
+                            rows.push([
+                                display_key,
+                                format!("[{} characters - use search to find content]", s.len())
+                                    .dimmed()
+                                    .to_string(),
+                            ]);
+                        } else if s.len() > 200 {
+                            // Truncate other long strings
+                            rows.push([display_key, format!("{}...", &s[..200]).to_string()]);
+                        } else {
+                            rows.push([display_key, s.clone()]);
+                        }
                     }
                     Value::Number(n) => {
                         rows.push([display_key, n.to_string().bright_yellow().to_string()]);
