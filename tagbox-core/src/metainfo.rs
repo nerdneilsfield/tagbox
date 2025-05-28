@@ -446,11 +446,38 @@ impl MetaInfoExtractor {
                     text_preview.len()
                 );
 
-                // 如果没有提取到标题，尝试从文本内容第一行获取
+                // 如果没有提取到标题，尝试从文本内容中智能提取
                 if meta.title.is_empty() && !text_preview.is_empty() {
-                    let first_line = text_preview.lines().next().unwrap_or("").trim();
-                    if !first_line.is_empty() && first_line.len() < 200 {
-                        meta.title = first_line.to_string();
+                    // 尝试找到真正的标题（通常在前几行，但不是版权声明）
+                    let lines: Vec<&str> = text_preview.lines().take(15).collect();
+                    for line in lines {
+                        let line = line.trim();
+                        // 跳过版权声明、许可证信息等，寻找真正的标题
+                        if line.len() > 5 && line.len() < 100 &&
+                           !line.to_lowercase().contains("copyright") &&
+                           !line.to_lowercase().contains("permission") &&
+                           !line.to_lowercase().contains("attribution") &&
+                           !line.to_lowercase().contains("proper") &&
+                           !line.to_lowercase().contains("google hereby") &&
+                           !line.contains("@") && // 跳过邮箱地址行
+                           !line.contains("arXiv") && // 跳过 arXiv 信息
+                           !line.starts_with("http") && // 跳过链接
+                           !line.chars().all(|c| c.is_ascii_uppercase() || c.is_whitespace() || c.is_ascii_punctuation())
+                        {
+                            // 跳过全大写标题
+                            meta.title = line.to_string();
+                            debug!("智能提取标题: {}", meta.title);
+                            break;
+                        }
+                    }
+
+                    // 如果还是没找到，使用第一行非空行
+                    if meta.title.is_empty() {
+                        let first_line = text_preview.lines().next().unwrap_or("").trim();
+                        if !first_line.is_empty() && first_line.len() < 200 {
+                            meta.title = first_line.to_string();
+                            debug!("使用第一行作为标题: {}", meta.title);
+                        }
                     }
                 }
 
@@ -479,14 +506,29 @@ impl MetaInfoExtractor {
 
                 meta.file_metadata = Some(file_metadata.clone());
 
-                // 构建类型特定元数据（文档类型）
-                let type_metadata = serde_json::json!({
+                // 构建类型特定元数据（包含创建者、生产者等信息）
+                let mut type_metadata = serde_json::json!({
                     "document": {
                         "format": "pdf",
                         "pages": page_count,
                         "extractable": !extracted_text.trim().is_empty()
                     }
                 });
+
+                // 将创建者、生产者等信息移动到 type_metadata
+                if let Some(creator) = meta.additional_info.get("creator") {
+                    type_metadata["document"]["creator"] = serde_json::json!(creator);
+                }
+                if let Some(producer) = meta.additional_info.get("producer") {
+                    type_metadata["document"]["producer"] = serde_json::json!(producer);
+                }
+                if let Some(creation_date) = meta.additional_info.get("creation_date") {
+                    type_metadata["document"]["creation_date"] = serde_json::json!(creation_date);
+                }
+                if let Some(modification_date) = meta.additional_info.get("modification_date") {
+                    type_metadata["document"]["modification_date"] =
+                        serde_json::json!(modification_date);
+                }
 
                 meta.type_metadata = Some(type_metadata.clone());
 
@@ -517,11 +559,39 @@ impl MetaInfoExtractor {
                                 extracted_text.len()
                             );
 
-                            // 尝试从文本内容中提取标题
+                            // 尝试从文本内容中智能提取标题
                             if meta.title.is_empty() && !extracted_text.is_empty() {
-                                let first_line = extracted_text.lines().next().unwrap_or("").trim();
-                                if !first_line.is_empty() && first_line.len() < 200 {
-                                    meta.title = first_line.to_string();
+                                // 尝试找到真正的标题（通常在前几行，但不是版权声明）
+                                let lines: Vec<&str> = extracted_text.lines().take(15).collect();
+                                for line in lines {
+                                    let line = line.trim();
+                                    // 跳过版权声明、许可证信息等，寻找真正的标题
+                                    if line.len() > 5 && line.len() < 100 &&
+                                       !line.to_lowercase().contains("copyright") &&
+                                       !line.to_lowercase().contains("permission") &&
+                                       !line.to_lowercase().contains("attribution") &&
+                                       !line.to_lowercase().contains("proper") &&
+                                       !line.to_lowercase().contains("google hereby") &&
+                                       !line.contains("@") && // 跳过邮箱地址行
+                                       !line.contains("arXiv") && // 跳过 arXiv 信息
+                                       !line.starts_with("http") && // 跳过链接
+                                       !line.chars().all(|c| c.is_ascii_uppercase() || c.is_whitespace() || c.is_ascii_punctuation())
+                                    {
+                                        // 跳过全大写标题
+                                        meta.title = line.to_string();
+                                        debug!("pdf-extract 智能提取标题: {}", meta.title);
+                                        break;
+                                    }
+                                }
+
+                                // 如果还是没找到，使用第一行非空行
+                                if meta.title.is_empty() {
+                                    let first_line =
+                                        extracted_text.lines().next().unwrap_or("").trim();
+                                    if !first_line.is_empty() && first_line.len() < 200 {
+                                        meta.title = first_line.to_string();
+                                        debug!("pdf-extract 使用第一行作为标题: {}", meta.title);
+                                    }
                                 }
                             }
                         }

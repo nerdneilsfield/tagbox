@@ -10,7 +10,17 @@ tokio = { workspace = true }
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "macros", "migrate", "chrono", "uuid"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
+clap = { version = "4.0", features = ["derive"] }
+lopdf = "0.32"
+pdf-extract = "0.7"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tagbox-core = { path = "../tagbox-core" }
 
 [[bin]]
 name = "tagbox-init-db"
 path = "src/init-db.rs"
+
+[[bin]]
+name = "tagbox-show-pdf-info"
+path = "src/show-pdf-metainfo.rs"

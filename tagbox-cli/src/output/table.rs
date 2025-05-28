@@ -49,6 +49,8 @@ fn parse_columns(columns: Option<&str>) -> Vec<String> {
             "authors".to_string(),
             "tags".to_string(),
             "category1".to_string(),
+            "created_at".to_string(),
+            "updated_at".to_string(),
         ],
     }
 }
@@ -153,6 +155,8 @@ pub fn print_preview_table(entry: &FileEntry) -> Result<()> {
     if entry.is_deleted {
         rows.push(["Status".to_string(), "DELETED".bright_red().to_string()]);
     }
+
+    rows.push(["Path".to_string(), entry.path.to_string_lossy().to_string()]);
 
     // Parse and display file_metadata JSON if available
     if let Some(file_metadata) = &entry.file_metadata {
@@ -332,10 +336,22 @@ fn format_column_value(entry: &FileEntry, column: &str) -> String {
         "publisher" => entry.publisher.clone().unwrap_or_else(|| "-".to_string()),
         "source" => entry.source.clone().unwrap_or_else(|| "-".to_string()),
         "path" => entry.path.to_string_lossy().to_string(),
-        "category1" => entry.category1.clone(),
+        "category1" => combine_categories(entry),
         "tags" => entry.tags.join(", "),
         "created_at" => entry.created_at.format("%Y-%m-%d %H:%M").to_string(),
         "updated_at" => entry.updated_at.format("%Y-%m-%d %H:%M").to_string(),
         _ => "-".to_string(),
     }
+}
+
+fn combine_categories(entry: &FileEntry) -> String {
+    let mut categories = vec![entry.category1.clone()];
+    if let Some(category2) = &entry.category2 {
+        categories.push(category2.clone());
+    }
+    if let Some(category3) = &entry.category3 {
+        categories.push(category3.clone());
+    }
+
+    categories.join("/")
 }
