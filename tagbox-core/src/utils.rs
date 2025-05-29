@@ -297,3 +297,117 @@ pub fn require_field<T>(opt: Option<T>, field: &str) -> Result<T> {
         field: field.to_string(),
     })
 }
+
+/// 解析分类字符串，支持格式：
+/// - "category1"            -> (category1, None, None)
+/// - "category1/category2"  -> (category1, Some(category2), None)  
+/// - "category1/category2/category3" -> (category1, Some(category2), Some(category3))
+/// - "category1/category2/category3/ignored" -> (category1, Some(category2), Some(category3))
+///
+/// 分类名不能包含 '/' 字符
+pub fn parse_category_string(
+    category_str: &str,
+) -> Result<(String, Option<String>, Option<String>)> {
+    let category_str = category_str.trim();
+
+    if category_str.is_empty() {
+        return Err(TagboxError::Config("分类字符串不能为空".to_string()));
+    }
+
+    // 检查是否包含连续的斜杠或以斜杠开头/结尾
+    if category_str.starts_with('/') || category_str.ends_with('/') || category_str.contains("//") {
+        return Err(TagboxError::Config(
+            "分类格式错误，不能以斜杠开头/结尾或包含连续斜杠".to_string(),
+        ));
+    }
+
+    let parts: Vec<&str> = category_str.split('/').collect();
+
+    // 检查每个部分是否为空
+    for (i, part) in parts.iter().enumerate() {
+        if part.trim().is_empty() {
+            return Err(TagboxError::Config(format!("第{}级分类不能为空", i + 1)));
+        }
+    }
+
+    match parts.len() {
+        1 => Ok((parts[0].trim().to_string(), None, None)),
+        2 => Ok((
+            parts[0].trim().to_string(),
+            Some(parts[1].trim().to_string()),
+            None,
+        )),
+        3 => Ok((
+            parts[0].trim().to_string(),
+            Some(parts[1].trim().to_string()),
+            Some(parts[2].trim().to_string()),
+        )),
+        n if n > 3 => {
+            // 超过3级的情况，只取前3级，发出警告
+            tracing::warn!("分类层级超过3级，只使用前3级: {}", category_str);
+            Ok((
+                parts[0].trim().to_string(),
+                Some(parts[1].trim().to_string()),
+                Some(parts[2].trim().to_string()),
+            ))
+        }
+        _ => unreachable!("split应该至少返回1个元素"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_category_string() {
+        // 单级分类
+        assert_eq!(
+            parse_category_string("Tech").unwrap(),
+            ("Tech".to_string(), None, None)
+        );
+
+        // 二级分类
+        assert_eq!(
+            parse_category_string("Tech/Programming").unwrap(),
+            ("Tech".to_string(), Some("Programming".to_string()), None)
+        );
+
+        // 三级分类
+        assert_eq!(
+            parse_category_string("Tech/Programming/Rust").unwrap(),
+            (
+                "Tech".to_string(),
+                Some("Programming".to_string()),
+                Some("Rust".to_string())
+            )
+        );
+
+        // 超过三级（只取前三级）
+        assert_eq!(
+            parse_category_string("Tech/Programming/Rust/Web/Backend").unwrap(),
+            (
+                "Tech".to_string(),
+                Some("Programming".to_string()),
+                Some("Rust".to_string())
+            )
+        );
+
+        // 带空格的分类名
+        assert_eq!(
+            parse_category_string(" Tech / Programming / Rust ").unwrap(),
+            (
+                "Tech".to_string(),
+                Some("Programming".to_string()),
+                Some("Rust".to_string())
+            )
+        );
+
+        // 错误情况
+        assert!(parse_category_string("").is_err());
+        assert!(parse_category_string("/Tech").is_err());
+        assert!(parse_category_string("Tech/").is_err());
+        assert!(parse_category_string("Tech//Programming").is_err());
+        assert!(parse_category_string("Tech/ /Programming").is_err());
+    }
+}

@@ -51,6 +51,9 @@ pub enum TagboxError {
 
     #[error("未找到: {0}")]
     NotFound(String),
+
+    #[error("文件系统错误: {0}")]
+    FileSystem(String),
 }
 
 pub type Result<T> = std::result::Result<T, TagboxError>;

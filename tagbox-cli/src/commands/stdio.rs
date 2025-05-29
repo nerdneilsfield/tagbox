@@ -148,8 +148,8 @@ async fn execute_command(
 
             // For stdio mode, we need to capture the import result
             import::handle_import(
-                path, delete, category, None, title, authors, year, publisher, source, tags,
-                summary, None, config,
+                path, delete, category, title, authors, year, publisher, source, tags, summary,
+                None, false, config,
             )
             .await?;
 

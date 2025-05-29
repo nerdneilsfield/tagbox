@@ -18,16 +18,22 @@ TagBox is a CLI tool to manage file metadata using local SQLite + full-text sear
 
 Import a file or directory of files.
 
-* `-d` or `--delete` — delete original after import(copy and detele)
-* `-c` or `--category`specify the category for file to store(relative path of storage_path)
-* `--category-id` use id to specify the category
-* `--title` specify the title of the file
-....with the same, use can specify many of the file attribute（`files` table) in command
-*  `--meta-file` json file use metafile to set the file the sttribute (`files` table)
+* `-d` or `--delete` — delete original after import (copy and delete)
+* `--category` — specify the category path (e.g., "Tech/Programming/Rust" or "Tech/Programming" or "Tech")
+* `--title` — specify the title of the file
+* `--authors` — specify the authors (comma-separated)
+* `--year` — specify the year
+* `--publisher` — specify the publisher
+* `--source` — specify the source
+* `--tags` — specify tags (comma-separated)
+* `--summary` — specify summary
+* `--meta-file` — JSON file to set file attributes
+* `-i` or `--interactive` — interactive mode - prompt for metadata after extraction
 
 ```sh
-tagbox import ./papers --delete --title "papers 1" --author "Wo "
-tagbox import ./papers --delete --title "papers 1" --authors  "Wo,Ni"
+tagbox import ./papers --delete --title "Paper 1" --authors "Author1,Author2"
+tagbox import ./papers --category "Tech/AI/Papers" --tags "ai,research"
+tagbox import ./document.pdf --interactive
 ```
 
 ### `import-url <url>`
@@ -35,15 +41,18 @@ tagbox import ./papers --delete --title "papers 1" --authors  "Wo,Ni"
 Download and import a file from a URL.
 
 * `--rename <name>` — override filename
-* `-c` or `--category`specify the category for file to store(relative path of storage_path)
-* `--category-id` use id to specify the category
-* `--title` specify the title of the file
-....with the same, use can specify many of the file attribute（`files` table) in command
-*  `--meta-file` json file use metafile to set the file the sttribute (`files` table)
-
+* `--category` — specify the category path (e.g., "Tech/Programming/Rust")
+* `--title` — specify the title of the file
+* `--authors` — specify the authors (comma-separated)
+* `--year` — specify the year
+* `--publisher` — specify the publisher
+* `--source` — specify the source
+* `--tags` — specify tags (comma-separated)
+* `--summary` — specify summary
+* `--meta-file` — JSON file to set file attributes
 
 ```sh
-tagbox import-url https://example.com/book.pdf --rename rust.pdf
+tagbox import-url https://example.com/book.pdf --rename rust.pdf --category "Tech/Programming"
 ```
 
 ### `search <query>`
@@ -74,6 +83,54 @@ tagbox preview abc123 --only-meta
 tagbox preview abc123 --open
 # or get the folder path
 cd $(tagbox preview abc123 --cd)
+```
+
+### `edit <id>`
+
+Edit file metadata for an existing file.
+
+* `-i` or `--interactive` — interactive mode - prompt for each field
+* `--mv` — move file to new category path after update
+* `-t` or `--title` — new title
+* `-a` or `--authors` — new authors (comma-separated)
+* `--category` — new category (e.g., "Tech/Programming/Rust")
+* `--tags` — new tags (comma-separated)
+* `--summary` — new summary
+* `--year` — new year
+* `--publisher` — new publisher
+* `--source` — new source
+
+```sh
+# Edit specific fields
+tagbox edit abc123 --title "New Title" --authors "Author1,Author2" --category "Tech/Programming/Rust" --mv
+
+# Interactive edit mode
+tagbox edit abc123 --interactive
+
+# Update category and move file
+tagbox edit abc123 --category "Research/AI/Papers" --mv
+```
+
+### `rebuild [id]`
+
+Rebuild file storage paths according to current configuration.
+
+* `[id]` — specific file ID to rebuild (optional, if not provided rebuilds all files)
+* `--apply` — actually move files (default: dry run mode)
+* `--workers` — number of parallel workers for batch operations (default: 4)
+
+```sh
+# Preview what would be moved for a specific file
+tagbox rebuild abc123
+
+# Actually move a specific file
+tagbox rebuild abc123 --apply
+
+# Preview what would be moved for all files
+tagbox rebuild
+
+# Actually move all files that need reorganization
+tagbox rebuild --apply --workers 8
 ```
 
 ### `link <id1> <id2>`

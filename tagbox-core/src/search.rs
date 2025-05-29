@@ -225,8 +225,8 @@ impl Searcher {
             r#"
             SELECT 
                 f.id, f.title, f.filename, f.initial_hash, f.current_hash,
-                f.relative_path, f.year, f.publisher, f.category_id,
-                f.summary,
+                f.relative_path, f.year, f.publisher, f.category1, f.category2, f.category3,
+                f.summary, f.full_text,
                 f.created_at, f.updated_at, f.is_deleted
             FROM files f
             "#,
@@ -317,9 +317,17 @@ impl Searcher {
         }
 
         // 处理分类过滤
-        if let Some(category) = &parsed.category {
-            where_clauses.push("f.category_id = ?".to_string());
-            params.push(category.clone());
+        if let Some(category1) = &parsed.category1 {
+            where_clauses.push("f.category1 = ?".to_string());
+            params.push(category1.clone());
+        }
+        if let Some(category2) = &parsed.category2 {
+            where_clauses.push("f.category2 = ?".to_string());
+            params.push(category2.clone());
+        }
+        if let Some(category3) = &parsed.category3 {
+            where_clauses.push("f.category3 = ?".to_string());
+            params.push(category3.clone());
         }
 
         // 排除已删除文件
@@ -455,12 +463,13 @@ impl Searcher {
                 hash: row.get("initial_hash"),
                 current_hash: row.get("current_hash"),
                 category1: row
-                    .get::<Option<String>, _>("category_id")
-                    .unwrap_or_default(), // 使用category_id作为category1
-                category2: None, // 暂时没有category2字段
-                category3: None, // 暂时没有category3字段
+                    .get::<Option<String>, _>("category1")
+                    .unwrap_or_default(),
+                category2: row.get::<Option<String>, _>("category2"),
+                category3: row.get::<Option<String>, _>("category3"),
                 tags,
                 summary: row.get("summary"),
+                full_text: row.get("full_text"),
                 created_at: chrono::DateTime::parse_from_rfc3339(row.get::<&str, _>("created_at"))
                     .unwrap_or_else(|_| chrono::Utc::now().into())
                     .with_timezone(&chrono::Utc),
@@ -652,7 +661,22 @@ impl Searcher {
             } else if let Some(category) = part.strip_prefix("category:") {
                 let category = category.trim();
                 if !category.is_empty() {
-                    parsed.category = Some(category.to_string());
+                    parsed.category1 = Some(category.to_string());
+                }
+            } else if let Some(category) = part.strip_prefix("category1:") {
+                let category = category.trim();
+                if !category.is_empty() {
+                    parsed.category1 = Some(category.to_string());
+                }
+            } else if let Some(category) = part.strip_prefix("category2:") {
+                let category = category.trim();
+                if !category.is_empty() {
+                    parsed.category2 = Some(category.to_string());
+                }
+            } else if let Some(category) = part.strip_prefix("category3:") {
+                let category = category.trim();
+                if !category.is_empty() {
+                    parsed.category3 = Some(category.to_string());
                 }
             } else if let Some(title) = part.strip_prefix("title:") {
                 let title = title.trim();
@@ -770,5 +794,7 @@ struct ParsedQuery {
     exclude_tags: Vec<String>,
     authors: Vec<String>,
     year: Option<i32>,
-    category: Option<String>,
+    category1: Option<String>,
+    category2: Option<String>,
+    category3: Option<String>,
 }

@@ -21,6 +21,7 @@ SQL_FILE="$SCRIPT_DIR/init-database.sql"
 DB_PATH=""
 FORCE=false
 VERBOSE=false
+CUSTOM_SQL_FILE=""
 
 # Help function
 show_help() {
@@ -34,9 +35,10 @@ ARGUMENTS:
     <database_path>    Path to the SQLite database file (will be created if doesn't exist)
 
 OPTIONS:
-    -f, --force       Force recreate database (will delete existing data!)
-    -v, --verbose     Enable verbose output
-    -h, --help        Show this help message
+    -f, --force                Force recreate database (will delete existing data!)
+    -s, --sql-file <file>      Custom SQL initialization file (default: init-database.sql)
+    -v, --verbose              Enable verbose output
+    -h, --help                 Show this help message
 
 EXAMPLES:
     # Initialize a new database
@@ -47,6 +49,9 @@ EXAMPLES:
     
     # Force recreate existing database
     $0 --force ./tagbox.db
+    
+    # Use custom SQL file
+    $0 --sql-file ./custom-schema.sql ./tagbox.db
     
     # Using DATABASE_URL environment variable
     export DATABASE_URL="sqlite:./tagbox.db"
@@ -102,6 +107,15 @@ parse_args() {
                 FORCE=true
                 shift
                 ;;
+            -s|--sql-file)
+                if [[ -n "${2:-}" ]]; then
+                    CUSTOM_SQL_FILE="$2"
+                    shift 2
+                else
+                    log_error "--sql-file requires a file path"
+                    exit 1
+                fi
+                ;;
             -v|--verbose)
                 VERBOSE=true
                 shift
@@ -134,6 +148,11 @@ parse_args() {
         echo
         show_help
         exit 1
+    fi
+    
+    # Set SQL file path
+    if [[ -n "$CUSTOM_SQL_FILE" ]]; then
+        SQL_FILE="$CUSTOM_SQL_FILE"
     fi
 }
 

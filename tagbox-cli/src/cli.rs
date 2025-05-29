@@ -33,13 +33,9 @@ pub enum Commands {
         #[arg(short, long)]
         delete: bool,
 
-        /// Specify the category for file to store (relative path of storage_path)
+        /// Specify the category path (e.g., "Tech/Programming/Rust" or "Tech/Programming" or "Tech")
         #[arg(long)]
         category: Option<String>,
-
-        /// Use id to specify the category
-        #[arg(long)]
-        category_id: Option<String>,
 
         /// Specify the title of the file
         #[arg(long)]
@@ -72,6 +68,10 @@ pub enum Commands {
         /// JSON file to set file attributes
         #[arg(long)]
         meta_file: Option<PathBuf>,
+
+        /// Interactive mode - prompt for metadata after extraction
+        #[arg(short, long)]
+        interactive: bool,
     },
 
     /// Download and import a file from a URL
@@ -87,13 +87,9 @@ pub enum Commands {
         #[arg(short, long)]
         delete: bool,
 
-        /// Specify the category for file to store (relative path of storage_path)
+        /// Specify the category path (e.g., "Tech/Programming/Rust" or "Tech/Programming" or "Tech")
         #[arg(long)]
         category: Option<String>,
-
-        /// Use id to specify the category
-        #[arg(long)]
-        category_id: Option<String>,
 
         /// Specify the title of the file
         #[arg(long)]
@@ -290,6 +286,66 @@ pub enum Commands {
     Db {
         #[command(subcommand)]
         command: DbCommands,
+    },
+
+    /// Edit file metadata
+    Edit {
+        /// File ID to edit
+        id: String,
+
+        /// Interactive mode - prompt for each field
+        #[arg(short, long)]
+        interactive: bool,
+
+        /// Move file to new category path after update
+        #[arg(long)]
+        mv: bool,
+
+        /// New title
+        #[arg(short, long)]
+        title: Option<String>,
+
+        /// New authors (comma-separated)
+        #[arg(short, long)]
+        authors: Option<String>,
+
+        /// New category (e.g., "Tech/Programming/Rust")
+        #[arg(long)]
+        category: Option<String>,
+
+        /// New tags (comma-separated)
+        #[arg(long)]
+        tags: Option<String>,
+
+        /// New summary
+        #[arg(long)]
+        summary: Option<String>,
+
+        /// New year
+        #[arg(long)]
+        year: Option<i32>,
+
+        /// New publisher
+        #[arg(long)]
+        publisher: Option<String>,
+
+        /// New source
+        #[arg(long)]
+        source: Option<String>,
+    },
+
+    /// Rebuild file storage paths according to current configuration
+    Rebuild {
+        /// Specific file ID to rebuild (optional)
+        id: Option<String>,
+
+        /// Actually move files (default: dry run)
+        #[arg(long)]
+        apply: bool,
+
+        /// Number of parallel workers
+        #[arg(long, default_value = "4")]
+        workers: usize,
     },
 }
 

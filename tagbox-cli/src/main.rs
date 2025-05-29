@@ -135,7 +135,6 @@ async fn execute_command(
             path,
             delete,
             category,
-            category_id,
             title,
             authors,
             year,
@@ -144,12 +143,12 @@ async fn execute_command(
             tags,
             summary,
             meta_file,
+            interactive,
         } => {
             commands::import::handle_import(
                 &path,
                 delete,
                 category,
-                category_id,
                 title,
                 authors,
                 year,
@@ -158,6 +157,7 @@ async fn execute_command(
                 tags,
                 summary,
                 meta_file,
+                interactive,
                 config,
             )
             .await
@@ -168,7 +168,6 @@ async fn execute_command(
             rename,
             delete,
             category,
-            category_id,
             title,
             authors,
             year,
@@ -179,20 +178,8 @@ async fn execute_command(
             meta_file,
         } => {
             commands::import::handle_import_url(
-                &url,
-                rename,
-                delete,
-                category,
-                category_id,
-                title,
-                authors,
-                year,
-                publisher,
-                source,
-                tags,
-                summary,
-                meta_file,
-                config,
+                &url, rename, delete, category, title, authors, year, publisher, source, tags,
+                summary, meta_file, config,
             )
             .await
         }
@@ -287,6 +274,41 @@ async fn execute_command(
         Commands::Db { .. } => {
             // This case is handled above, but we need it here for exhaustive matching
             unreachable!("Db commands should be handled before this match")
+        }
+
+        Commands::Edit {
+            id,
+            interactive,
+            mv,
+            title,
+            authors,
+            category,
+            tags,
+            summary,
+            year,
+            publisher,
+            source,
+        } => commands::edit::handle_edit(
+            &id,
+            interactive,
+            mv,
+            title,
+            authors,
+            category,
+            tags,
+            summary,
+            year,
+            publisher,
+            source,
+            config,
+        )
+        .await
+        .map_err(CliError::Core),
+
+        Commands::Rebuild { id, apply, workers } => {
+            commands::rebuild::handle_rebuild(id, apply, workers, config)
+                .await
+                .map_err(CliError::Core)
         }
     }
 }

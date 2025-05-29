@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **File editing and management features**
+  - New `edit` command for interactive and batch metadata editing
+  - New `rebuild` command for file path reorganization based on category structure
+  - Interactive mode for `import` command with `--interactive` flag
+  - File movement functionality with `--mv` flag in edit command
+  - Preview mode for rebuild operations (dry-run by default)
+
+### Changed
+- **Category system refactoring**
+  - Simplified category system from complex category_id relationships to three-level string fields (category1, category2, category3)
+  - Support for intuitive path-style category input (e.g., "Tech/Programming/Rust")
+  - Updated CLI to use single `--category` parameter instead of multiple category flags
+  - Enhanced database schema with `full_text` field for better search capabilities
+
+### Enhanced
+- **Core functionality improvements**
+  - Added `Editor::update_file_with_move()` for atomic update and move operations
+  - Added `Editor::move_file()` for category-based file relocation
+  - Added `Editor::rebuild_all_files()` with parallel processing support
+  - Added `Editor::preview_changes()` for change visualization
+  - Default author handling now uses "Unknown" instead of empty list
+  - Enhanced error handling with new `FileSystem` error type
+
+### Updated
+- **Documentation**
+  - Updated CLI documentation with new edit and rebuild commands
+  - Enhanced README with feature overview and quick start guide
+  - Added comprehensive usage examples for all new commands
+
 ## [2025-05-27] - 系统配置验证与文件完整性功能
 
 ### Added

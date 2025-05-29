@@ -1,12 +1,14 @@
 pub mod author;
 pub mod config;
 pub mod db;
+pub mod edit;
 pub mod export;
 pub mod import;
 pub mod init_config;
 pub mod link;
 pub mod list;
 pub mod preview;
+pub mod rebuild;
 pub mod search;
 pub mod serve;
 pub mod stats;

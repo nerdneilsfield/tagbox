@@ -72,7 +72,7 @@ impl Database {
     pub async fn migrate(&self) -> Result<()> {
         info!("开始应用数据库迁移...");
 
-        // 创建文件表
+        // 创建文件表 - 简化分类设计，添加全文字段
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS files (
@@ -82,17 +82,29 @@ impl Database {
                 current_hash TEXT,
                 relative_path TEXT NOT NULL,
                 filename TEXT NOT NULL,
+                
+                -- 基本元信息
                 year INTEGER,
                 publisher TEXT,
-                category_id TEXT,
                 source_url TEXT,
                 summary TEXT,
+                
+                -- 简化的三级分类（支持 "cat1/cat2/cat3" 格式输入）
+                category1 TEXT,
+                category2 TEXT,
+                category3 TEXT,
+                
+                -- 全文内容（前几页或部分内容，用于搜索）
+                full_text TEXT,
+                
+                -- 系统字段
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 is_deleted INTEGER NOT NULL DEFAULT 0,
                 deleted_at TEXT,
                 file_metadata TEXT,
                 type_metadata TEXT,
+                
                 UNIQUE(initial_hash)
             );
             "#,
@@ -220,7 +232,7 @@ impl Database {
         .await
         .map_err(TagboxError::Database)?;
 
-        // 创建全文搜索虚拟表 (使用 Signal CJK 分词器)
+        // 创建全文搜索虚拟表 (使用 Signal CJK 分词器，包含full_text)
         let create_fts_result = sqlx::query(
             r#"
             CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
@@ -228,6 +240,7 @@ impl Database {
                 authors,
                 summary,
                 tags,
+                full_text,
                 content='files',
                 content_rowid='rowid',
                 tokenize='signal_tokenizer unicode61 remove_diacritics 1'
@@ -253,6 +266,7 @@ impl Database {
                         authors,
                         summary,
                         tags,
+                        full_text,
                         content='files',
                         content_rowid='rowid',
                         tokenize='unicode61 remove_diacritics 1'
@@ -275,6 +289,7 @@ impl Database {
                                 authors,
                                 summary,
                                 tags,
+                                full_text,
                                 content='files',
                                 tokenize=simple
                             );
@@ -290,12 +305,12 @@ impl Database {
             }
         }
 
-        // 创建触发器在文件更新时更新FTS索引
+        // 创建触发器在文件更新时更新FTS索引（包含full_text）
         sqlx::query(
             r#"
             CREATE TRIGGER IF NOT EXISTS files_ai AFTER INSERT ON files BEGIN
-                INSERT INTO files_fts(rowid, title, authors, summary, tags)
-                VALUES (new.rowid, new.title, '', new.summary, '');
+                INSERT INTO files_fts(rowid, title, authors, summary, tags, full_text)
+                VALUES (new.rowid, new.title, '', new.summary, '', COALESCE(new.full_text, ''));
             END;
             "#,
         )
@@ -318,8 +333,8 @@ impl Database {
             r#"
             CREATE TRIGGER IF NOT EXISTS files_au AFTER UPDATE ON files BEGIN
                 DELETE FROM files_fts WHERE rowid = old.rowid;
-                INSERT INTO files_fts(rowid, title, authors, summary, tags)
-                VALUES (new.rowid, new.title, '', new.summary, '');
+                INSERT INTO files_fts(rowid, title, authors, summary, tags, full_text)
+                VALUES (new.rowid, new.title, '', new.summary, '', COALESCE(new.full_text, ''));
             END;
             "#,
         )

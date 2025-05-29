@@ -130,6 +130,7 @@ async fn extract_pdf_direct(
         category3: None,
         tags: Vec::new(),
         summary: None,
+        full_text: None,
         additional_info: HashMap::new(),
         file_metadata: None,
         type_metadata: None,

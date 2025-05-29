@@ -42,25 +42,29 @@ impl Editor {
             params.push(QueryParam::String(title.clone()));
         }
 
-        if let Some(category_val) = &update.category1 {
-            // Changed from category_id, using suggestion
-            updates.push("category_id = ?".to_string()); // DB column is category_id
-            params.push(QueryParam::String(category_val.clone()));
+        if let Some(category1) = &update.category1 {
+            updates.push("category1 = ?".to_string());
+            params.push(QueryParam::String(category1.clone()));
         }
-        // Remove category2 and category3 as they are not in FileUpdateRequest or files table
-        // if let Some(category2) = &update.category2 {
-        //     updates.push("category2 = ?".to_string());
-        //     params.push(QueryParam::String(category2.clone()));
-        // }
-        // if let Some(category3) = &update.category3 {
-        //     updates.push("category3 = ?".to_string());
-        //     params.push(QueryParam::String(category3.clone()));
-        // }
+
+        if let Some(category2) = &update.category2 {
+            updates.push("category2 = ?".to_string());
+            params.push(QueryParam::String(category2.clone()));
+        }
+
+        if let Some(category3) = &update.category3 {
+            updates.push("category3 = ?".to_string());
+            params.push(QueryParam::String(category3.clone()));
+        }
 
         if let Some(summary_val) = &update.summary {
-            // Changed from summaries, using suggestion
-            updates.push("summary = ?".to_string()); // DB column is summary
+            updates.push("summary = ?".to_string());
             params.push(QueryParam::String(summary_val.clone()));
+        }
+
+        if let Some(full_text_val) = &update.full_text {
+            updates.push("full_text = ?".to_string());
+            params.push(QueryParam::String(full_text_val.clone()));
         }
 
         if let Some(is_deleted) = update.is_deleted {
@@ -261,7 +265,7 @@ impl Editor {
         } else {
             let new_tag_id = crate::utils::generate_uuid();
             let now = current_time().to_rfc3339();
-            // Assuming tags table has (id, name, created_at, category_id (optional))
+            // Tags table has (id, name, created_at)
             // Removed updated_at based on "table tags has no column named updated_at" error
             sqlx::query!(
                 "INSERT INTO tags (id, name, path, created_at, is_deleted, parent_id) VALUES (?, ?, ?, ?, ?, NULL)",
@@ -295,10 +299,7 @@ impl Editor {
         .map_err(TagboxError::Database)?
         .ok_or_else(|| TagboxError::InvalidFileId(file_id.to_string()))?;
 
-        Ok(std::path::PathBuf::from(require_field(
-            file_path.relative_path,
-            "files.relative_path",
-        )?))
+        Ok(std::path::PathBuf::from(file_path.relative_path))
     }
 
     /// 获取文件信息
@@ -310,7 +311,7 @@ impl Editor {
             r#"
             SELECT
                 id, title, initial_hash, current_hash, relative_path, filename,
-                year, publisher, category_id, source_url, summary,
+                year, publisher, category1, category2, category3, source_url, summary, full_text,
                 created_at, updated_at, is_deleted, deleted_at,
                 file_metadata, type_metadata
             FROM files
@@ -354,19 +355,17 @@ impl Editor {
             year: file_row.year.map(|y| y as i32),
             publisher: file_row.publisher,
             source: file_row.source_url,
-            path: std::path::PathBuf::from(require_field(
-                file_row.relative_path,
-                "files.relative_path",
-            )?),
+            path: std::path::PathBuf::from(file_row.relative_path),
             original_path: None,
-            original_filename: require_field(file_row.filename, "files.filename")?,
-            hash: require_field(file_row.initial_hash, "files.initial_hash")?,
+            original_filename: file_row.filename,
+            hash: file_row.initial_hash,
             current_hash: file_row.current_hash,
-            category1: require_field(file_row.category_id, "files.category_id")?,
-            category2: None,
-            category3: None,
+            category1: file_row.category1.unwrap_or_default(),
+            category2: file_row.category2,
+            category3: file_row.category3,
             tags,
             summary: file_row.summary,
+            full_text: file_row.full_text,
             created_at: DateTime::parse_from_rfc3339(&file_row.created_at)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
@@ -384,5 +383,333 @@ impl Editor {
                 .as_deref()
                 .and_then(|s| serde_json::from_str(s).ok()),
         })
+    }
+
+    /// 更新文件并可选择移动到新路径
+    pub async fn update_file_with_move(
+        &self,
+        file_id: &str,
+        update: FileUpdateRequest,
+        auto_move: bool,
+        config: &crate::config::AppConfig,
+    ) -> Result<Option<std::path::PathBuf>> {
+        // 获取更新前的文件信息
+        let _old_file = self.get_file(file_id).await?;
+
+        // 执行基本更新
+        self.update_file(file_id, update.clone()).await?;
+
+        // 如果需要移动且分类发生了变化
+        if auto_move
+            && (update.category1.is_some()
+                || update.category2.is_some()
+                || update.category3.is_some())
+        {
+            return self.move_file(file_id, config).await.map(Some);
+        }
+
+        Ok(None)
+    }
+
+    /// 根据当前分类移动文件到正确的路径
+    pub async fn move_file(
+        &self,
+        file_id: &str,
+        config: &crate::config::AppConfig,
+    ) -> Result<std::path::PathBuf> {
+        use crate::pathgen::PathGenerator;
+        use crate::types::ImportMetadata;
+        use std::fs;
+
+        // 获取文件当前信息
+        let file = self.get_file(file_id).await?;
+
+        // 构建新的元数据用于路径生成
+        let metadata = ImportMetadata {
+            title: file.title.clone(),
+            authors: file.authors.clone(),
+            year: file.year,
+            publisher: file.publisher.clone(),
+            source: file.source.clone(),
+            category1: file.category1.clone(),
+            category2: file.category2.clone(),
+            category3: file.category3.clone(),
+            tags: file.tags.clone(),
+            summary: file.summary.clone(),
+            full_text: file.full_text.clone(),
+            additional_info: std::collections::HashMap::new(),
+            file_metadata: file.file_metadata.clone(),
+            type_metadata: file.type_metadata.clone(),
+        };
+
+        // 生成新路径
+        let path_generator = PathGenerator::new(config.clone());
+        let new_filename = path_generator.generate_filename(&file.original_filename, &metadata)?;
+        let new_path = path_generator.generate_path(&new_filename, &metadata)?;
+
+        // 当前文件的绝对路径
+        let old_absolute_path = config.import.paths.storage_dir.join(&file.path);
+
+        // 如果路径没有改变，直接返回
+        if new_path == old_absolute_path {
+            return Ok(new_path);
+        }
+
+        // 创建目标目录
+        if let Some(parent) = new_path.parent() {
+            fs::create_dir_all(parent).map_err(|e| {
+                TagboxError::FileSystem(format!("Failed to create directory: {}", e))
+            })?;
+        }
+
+        // 移动文件
+        fs::rename(&old_absolute_path, &new_path)
+            .map_err(|e| TagboxError::FileSystem(format!("Failed to move file: {}", e)))?;
+
+        // 更新数据库中的路径
+        let new_relative_path = new_path
+            .strip_prefix(&config.import.paths.storage_dir)
+            .map_err(|_| TagboxError::FileSystem("Invalid storage path".to_string()))?
+            .to_string_lossy()
+            .to_string();
+
+        let updated_at = crate::utils::current_time().to_rfc3339();
+        sqlx::query!(
+            "UPDATE files SET relative_path = ?, updated_at = ? WHERE id = ?",
+            new_relative_path,
+            updated_at,
+            file_id
+        )
+        .execute(&self.db_pool)
+        .await
+        .map_err(TagboxError::Database)?;
+
+        Ok(new_path)
+    }
+
+    /// 检查单个文件路径是否需要重建
+    pub async fn check_file_path(
+        &self,
+        file_id: &str,
+        config: &crate::config::AppConfig,
+    ) -> Result<Option<std::path::PathBuf>> {
+        use crate::pathgen::PathGenerator;
+        use crate::types::ImportMetadata;
+
+        let file = self.get_file(file_id).await?;
+
+        // 构建元数据
+        let metadata = ImportMetadata {
+            title: file.title.clone(),
+            authors: file.authors.clone(),
+            year: file.year,
+            publisher: file.publisher.clone(),
+            source: file.source.clone(),
+            category1: file.category1.clone(),
+            category2: file.category2.clone(),
+            category3: file.category3.clone(),
+            tags: file.tags.clone(),
+            summary: file.summary.clone(),
+            full_text: file.full_text.clone(),
+            additional_info: std::collections::HashMap::new(),
+            file_metadata: file.file_metadata.clone(),
+            type_metadata: file.type_metadata.clone(),
+        };
+
+        // 生成应该的路径
+        let path_generator = PathGenerator::new(config.clone());
+        let expected_filename =
+            path_generator.generate_filename(&file.original_filename, &metadata)?;
+        let expected_path = path_generator.generate_path(&expected_filename, &metadata)?;
+
+        // 当前文件的绝对路径
+        let current_absolute_path = config.import.paths.storage_dir.join(&file.path);
+
+        // 如果路径不同，返回预期路径
+        if expected_path != current_absolute_path {
+            Ok(Some(expected_path))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// 重建单个文件的路径
+    pub async fn rebuild_file_path(
+        &self,
+        file_id: &str,
+        config: &crate::config::AppConfig,
+    ) -> Result<Option<std::path::PathBuf>> {
+        if let Some(_new_path) = self.check_file_path(file_id, config).await? {
+            let moved_path = self.move_file(file_id, config).await?;
+            Ok(Some(moved_path))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// 重建所有文件的路径（支持并行）
+    pub async fn rebuild_all_files(
+        &self,
+        config: &crate::config::AppConfig,
+        dry_run: bool,
+        progress_callback: Option<Box<dyn Fn(usize, usize) + Send + Sync>>,
+    ) -> Result<Vec<(String, std::path::PathBuf, std::path::PathBuf)>> {
+        use tokio::task::JoinSet;
+
+        // 获取所有文件ID
+        let file_ids: Vec<String> = sqlx::query!("SELECT id FROM files WHERE is_deleted = 0")
+            .fetch_all(&self.db_pool)
+            .await
+            .map_err(TagboxError::Database)?
+            .into_iter()
+            .filter_map(|row| row.id)
+            .collect();
+
+        let total_files = file_ids.len();
+        let mut results = Vec::new();
+        let mut completed = 0;
+
+        // 分批处理以避免过多并发
+        let chunk_size = 10;
+        for chunk in file_ids.chunks(chunk_size) {
+            let mut join_set: JoinSet<
+                Result<Option<(String, std::path::PathBuf, std::path::PathBuf)>>,
+            > = JoinSet::new();
+
+            for file_id in chunk {
+                let file_id = file_id.clone();
+                let config = config.clone();
+                let db_pool = self.db_pool.clone();
+
+                join_set.spawn(async move {
+                    let editor = Editor::new(db_pool);
+                    let current_path = editor.get_file(&file_id).await?.path;
+
+                    match editor.check_file_path(&file_id, &config).await? {
+                        Some(new_path) => {
+                            let old_absolute = config.import.paths.storage_dir.join(&current_path);
+                            if !dry_run {
+                                editor.move_file(&file_id, &config).await?;
+                            }
+                            Ok(Some((file_id, old_absolute, new_path)))
+                        }
+                        None => Ok(None),
+                    }
+                });
+            }
+
+            // 等待当前批次完成
+            while let Some(result) = join_set.join_next().await {
+                match result {
+                    Ok(Ok(Some(move_info))) => {
+                        results.push(move_info);
+                    }
+                    Ok(Ok(None)) => {
+                        // 文件不需要移动
+                    }
+                    Ok(Err(e)) => {
+                        tracing::warn!("Failed to process file: {}", e);
+                    }
+                    Err(e) => {
+                        tracing::warn!("Task failed: {}", e);
+                    }
+                }
+
+                completed += 1;
+                if let Some(ref callback) = progress_callback {
+                    callback(completed, total_files);
+                }
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// 获取文件信息用于编辑（包含更多详细信息）
+    pub async fn get_file_for_edit(&self, file_id: &str) -> Result<crate::types::FileEntry> {
+        self.get_file(file_id).await
+    }
+
+    /// 预览更改（返回更改摘要）
+    pub fn preview_changes(
+        &self,
+        original: &crate::types::FileEntry,
+        update: &FileUpdateRequest,
+    ) -> Vec<String> {
+        let mut changes = Vec::new();
+
+        if let Some(title) = &update.title {
+            if title != &original.title {
+                changes.push(format!("Title: '{}' → '{}'", original.title, title));
+            }
+        }
+
+        if let Some(authors) = &update.authors {
+            if authors != &original.authors {
+                changes.push(format!("Authors: {:?} → {:?}", original.authors, authors));
+            }
+        }
+
+        if let Some(category1) = &update.category1 {
+            if category1 != &original.category1 {
+                changes.push(format!(
+                    "Category1: '{}' → '{}'",
+                    original.category1, category1
+                ));
+            }
+        }
+
+        if let Some(category2) = &update.category2 {
+            if Some(category2) != original.category2.as_ref() {
+                changes.push(format!(
+                    "Category2: {:?} → {:?}",
+                    original.category2, category2
+                ));
+            }
+        }
+
+        if let Some(category3) = &update.category3 {
+            if Some(category3) != original.category3.as_ref() {
+                changes.push(format!(
+                    "Category3: {:?} → {:?}",
+                    original.category3, category3
+                ));
+            }
+        }
+
+        if let Some(tags) = &update.tags {
+            if tags != &original.tags {
+                changes.push(format!("Tags: {:?} → {:?}", original.tags, tags));
+            }
+        }
+
+        if let Some(summary) = &update.summary {
+            if Some(summary) != original.summary.as_ref() {
+                changes.push(format!("Summary: {:?} → {:?}", original.summary, summary));
+            }
+        }
+
+        if let Some(year) = &update.year {
+            if Some(*year) != original.year {
+                changes.push(format!("Year: {:?} → {}", original.year, year));
+            }
+        }
+
+        if let Some(publisher) = &update.publisher {
+            if Some(publisher) != original.publisher.as_ref() {
+                changes.push(format!(
+                    "Publisher: {:?} → {:?}",
+                    original.publisher, publisher
+                ));
+            }
+        }
+
+        if let Some(source) = &update.source {
+            if Some(source) != original.source.as_ref() {
+                changes.push(format!("Source: {:?} → {:?}", original.source, source));
+            }
+        }
+
+        changes
     }
 }

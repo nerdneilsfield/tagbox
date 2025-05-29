@@ -11,7 +11,7 @@ PRAGMA journal_mode = WAL;
 -- Core Tables
 -- ========================================
 
--- Files table - stores file metadata
+-- Files table - stores file metadata with simplified three-level categories
 DROP TABLE IF EXISTS files;
 CREATE TABLE files (
     id TEXT PRIMARY KEY,
@@ -20,27 +20,33 @@ CREATE TABLE files (
     current_hash TEXT,
     relative_path TEXT NOT NULL,
     filename TEXT NOT NULL,
+    
+    -- Basic metadata
     year INTEGER,
     publisher TEXT,
-    category_id TEXT,
     source_url TEXT,
     summary TEXT,
+    
+    -- Simplified three-level categories (supports "cat1/cat2/cat3" format)
+    category1 TEXT,
+    category2 TEXT,
+    category3 TEXT,
+    
+    -- Full text content (for search)
+    full_text TEXT,
+    
+    -- System fields
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     is_deleted INTEGER NOT NULL DEFAULT 0,
     deleted_at TEXT,
     file_metadata TEXT,  -- JSON format
     type_metadata TEXT,  -- JSON format
+    
     UNIQUE(initial_hash)
 );
 
--- Categories table
-CREATE TABLE IF NOT EXISTS categories (
-    id TEXT PRIMARY KEY,
-    path TEXT NOT NULL UNIQUE,
-    parent TEXT,
-    updated_at TEXT NOT NULL
-);
+-- Note: Categories table removed - now using simplified category1/category2/category3 fields
 
 -- Tags table with hierarchical support
 DROP TABLE IF EXISTS tags;
@@ -127,12 +133,13 @@ CREATE TABLE IF NOT EXISTS file_metadata (
 -- Full-Text Search
 -- ========================================
 
--- FTS5 virtual table for full-text search
+-- FTS5 virtual table for full-text search (includes full_text field)
 CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
     title, 
-    tags,
-    summary, 
     authors,
+    summary, 
+    tags,
+    full_text,
     content='files', 
     content_rowid='rowid'
 );
@@ -190,7 +197,9 @@ CREATE TABLE IF NOT EXISTS file_access_stats (
 -- ========================================
 
 -- Primary indexes
-CREATE INDEX IF NOT EXISTS idx_files_category ON files(category_id);
+CREATE INDEX IF NOT EXISTS idx_files_category1 ON files(category1);
+CREATE INDEX IF NOT EXISTS idx_files_category2 ON files(category2);
+CREATE INDEX IF NOT EXISTS idx_files_category3 ON files(category3);
 CREATE INDEX IF NOT EXISTS idx_files_year ON files(year);
 CREATE INDEX IF NOT EXISTS idx_files_current_hash ON files(current_hash);
 CREATE INDEX IF NOT EXISTS idx_files_initial_hash ON files(initial_hash);
@@ -235,12 +244,7 @@ INSERT OR IGNORE INTO system_config (key, value, description) VALUES
     ('created_at', datetime('now'), 'Database creation timestamp'),
     ('last_migration', datetime('now'), 'Last migration timestamp');
 
--- Insert default categories
-INSERT OR IGNORE INTO categories (id, path, parent, updated_at) VALUES
-    ('misc', 'misc', NULL, datetime('now')),
-    ('books', 'books', NULL, datetime('now')),
-    ('papers', 'papers', NULL, datetime('now')),
-    ('documents', 'documents', NULL, datetime('now'));
+-- Note: Default categories removed - now using simplified string-based categories
 
 -- Insert default tags
 INSERT OR IGNORE INTO tags (id, name, path, parent_id, created_at, is_deleted) VALUES

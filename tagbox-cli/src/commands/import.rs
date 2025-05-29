@@ -10,7 +10,6 @@ pub async fn handle_import(
     path: &Path,
     delete: bool,
     category: Option<String>,
-    category_id: Option<String>,
     title: Option<String>,
     authors: Option<String>,
     year: Option<i32>,
@@ -19,6 +18,7 @@ pub async fn handle_import(
     tags: Option<String>,
     summary: Option<String>,
     meta_file: Option<PathBuf>,
+    interactive: bool,
     config: &AppConfig,
 ) -> Result<()> {
     log::info!("Starting import of: {}", path.display());
@@ -29,36 +29,14 @@ pub async fn handle_import(
 
     let entries = if path.is_file() {
         import_single_file(
-            path,
-            delete,
-            category,
-            category_id,
-            title,
-            authors,
-            year,
-            publisher,
-            source,
-            tags,
-            summary,
-            meta_file,
-            config,
+            path, delete, category, title, authors, year, publisher, source, tags, summary,
+            meta_file, config,
         )
         .await?
     } else {
         import_directory(
-            path,
-            delete,
-            category,
-            category_id,
-            title,
-            authors,
-            year,
-            publisher,
-            source,
-            tags,
-            summary,
-            meta_file,
-            config,
+            path, delete, category, title, authors, year, publisher, source, tags, summary,
+            meta_file, config,
         )
         .await?
     };
@@ -82,7 +60,6 @@ pub async fn handle_import_url(
     rename: Option<String>,
     delete: bool,
     category: Option<String>,
-    category_id: Option<String>,
     title: Option<String>,
     authors: Option<String>,
     year: Option<i32>,
@@ -100,19 +77,8 @@ pub async fn handle_import_url(
 
     // Import the downloaded file
     let result = import_single_file(
-        &temp_path,
-        delete,
-        category,
-        category_id,
-        title,
-        authors,
-        year,
-        publisher,
-        source,
-        tags,
-        summary,
-        meta_file,
-        config,
+        &temp_path, delete, category, title, authors, year, publisher, source, tags, summary,
+        meta_file, config,
     )
     .await;
 
@@ -139,7 +105,6 @@ async fn import_single_file(
     path: &Path,
     delete: bool,
     category: Option<String>,
-    category_id: Option<String>,
     title: Option<String>,
     authors: Option<String>,
     year: Option<i32>,
@@ -163,7 +128,6 @@ async fn import_single_file(
     apply_metadata_overrides(
         &mut metadata,
         category,
-        category_id,
         title,
         authors,
         year,
@@ -192,7 +156,6 @@ async fn import_directory(
     path: &Path,
     delete: bool,
     _category: Option<String>,
-    _category_id: Option<String>,
     _title: Option<String>,
     _authors: Option<String>,
     _year: Option<i32>,
@@ -408,7 +371,6 @@ async fn load_metadata_from_file(path: &Path) -> Result<ImportMetadata> {
 fn apply_metadata_overrides(
     metadata: &mut ImportMetadata,
     category: Option<String>,
-    _category_id: Option<String>, // TODO: implement category lookup by ID
     title: Option<String>,
     authors: Option<String>,
     year: Option<i32>,
@@ -437,8 +399,14 @@ fn apply_metadata_overrides(
         metadata.source = Some(source);
     }
 
-    if let Some(category) = category {
-        metadata.category1 = category;
+    // Handle category assignment using new path-based format
+    if let Some(category_path) = category {
+        let (cat1, cat2, cat3) = tagbox_core::utils::parse_category_string(&category_path)
+            .map_err(|e| CliError::CommandFailed(format!("Invalid category format: {}", e)))?;
+
+        metadata.category1 = cat1;
+        metadata.category2 = cat2;
+        metadata.category3 = cat3;
     }
 
     if let Some(tags) = tags {

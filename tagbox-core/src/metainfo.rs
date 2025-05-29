@@ -84,7 +84,7 @@ impl MetaInfoExtractor {
             } else {
                 filename.to_string()
             },
-            authors: Vec::new(),
+            authors: vec!["Unknown".to_string()],
             year: None,
             publisher: None,
             source: None,
@@ -93,6 +93,7 @@ impl MetaInfoExtractor {
             category3: None,
             tags: Vec::new(),
             summary: None,
+            full_text: None,
             additional_info: HashMap::new(),
             file_metadata: None,
             type_metadata: None,
@@ -230,6 +231,7 @@ impl MetaInfoExtractor {
                 .get("summary")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
+            full_text: None,
             additional_info: HashMap::new(),
             file_metadata: None,
             type_metadata: Some(json.clone()),
@@ -274,7 +276,7 @@ impl MetaInfoExtractor {
         // 先从文件名获取基础元数据
         let mut meta = ImportMetadata {
             title: String::new(),
-            authors: Vec::new(),
+            authors: vec!["Unknown".to_string()],
             year: None,
             publisher: None,
             source: None,
@@ -283,6 +285,7 @@ impl MetaInfoExtractor {
             category3: None,
             tags: Vec::new(),
             summary: None,
+            full_text: None,
             additional_info: HashMap::new(),
             file_metadata: None,
             type_metadata: None,
@@ -880,6 +883,7 @@ impl MetaInfoExtractor {
                 merged_tags
             },
             summary: override_data.summary.or(base.summary),
+            full_text: override_data.full_text.or(base.full_text),
             additional_info: {
                 let mut merged_info = base.additional_info;
                 merged_info.extend(override_data.additional_info);

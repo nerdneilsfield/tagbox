@@ -185,9 +185,12 @@ impl Importer {
             filename: Option<String>,
             year: Option<i64>,
             publisher: Option<String>,
-            category_id: Option<String>,
+            category1: Option<String>,
+            category2: Option<String>,
+            category3: Option<String>,
             source_url: Option<String>,
             summary: Option<String>,
+            full_text: Option<String>,
             created_at: String,
             updated_at: String,
             is_deleted: i64,
@@ -201,7 +204,7 @@ impl Importer {
             r#"
             SELECT 
                 id as "id!", title as "title!", initial_hash, current_hash, 
-                relative_path, filename, year, publisher, category_id, source_url, summary,
+                relative_path, filename, year, publisher, category1, category2, category3, source_url, summary, full_text,
                 created_at as "created_at!", updated_at as "updated_at!", is_deleted, deleted_at as "_deleted_at",
                 file_metadata, type_metadata
             FROM files
@@ -230,11 +233,12 @@ impl Importer {
                 original_filename: require_field(db_row.filename, "files.filename")?,
                 hash: require_field(db_row.initial_hash, "files.initial_hash")?,
                 current_hash: db_row.current_hash,
-                category1: require_field(db_row.category_id, "files.category_id")?,
-                category2: None,
-                category3: None,
+                category1: db_row.category1.unwrap_or_default(),
+                category2: db_row.category2,
+                category3: db_row.category3,
                 tags,
                 summary: db_row.summary,
+                full_text: db_row.full_text,
                 created_at: DateTime::parse_from_rfc3339(&db_row.created_at)
                     .map(|dt| dt.with_timezone(&Utc))
                     .unwrap_or_else(|_| Utc::now()),
@@ -295,11 +299,11 @@ impl Importer {
             r#"
             INSERT INTO files (
                 id, title, initial_hash, current_hash, relative_path, filename,
-                year, publisher, category_id, source_url, summary,
+                year, publisher, category1, category2, category3, source_url, summary, full_text,
                 created_at, updated_at, is_deleted, deleted_at,
                 file_metadata, type_metadata
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
             id,
             metadata.title,
@@ -310,8 +314,11 @@ impl Importer {
             metadata.year,
             metadata.publisher,
             metadata.category1,
+            metadata.category2,
+            metadata.category3,
             metadata.source,
             metadata.summary,
+            metadata.full_text,
             now_str_rfc3339,
             now_str_rfc3339,
             0,
@@ -358,6 +365,7 @@ impl Importer {
             category3: metadata.category3.clone(),
             tags: tags_for_entry,
             summary: metadata.summary.clone(),
+            full_text: metadata.full_text.clone(),
             created_at: now_datetime,
             updated_at: now_datetime,
             last_accessed: None,

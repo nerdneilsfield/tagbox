@@ -80,9 +80,9 @@ impl AuthorManager {
         .map_err(TagboxError::Database)?;
 
         if let Some(author) = existing {
-            return self
-                .get_author(&require_field(author.id, "authors.id")?)
-                .await;
+            if let Some(id) = &author.id {
+                return self.get_author(id).await;
+            }
         }
 
         // 创建新作者
