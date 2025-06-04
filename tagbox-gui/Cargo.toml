@@ -6,3 +6,5 @@ authors = ["Qi Deng<dengqi935@gmail.com>"]
 description = "Core library for TagBox file management system"
 
 [dependencies]
+fltk = { version = "1.4", features = ["fltk-bundled"] }
+fltk-table = "0.3"
