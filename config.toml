@@ -1,0 +1,23 @@
+[import.paths]
+storage_dir = "./tagbox_data/files"
+rename_template = "{title}_{authors}_{year}"
+classify_template = "{category1}/{filename}"
+
+[import.metadata]
+prefer_json = true
+fallback_pdf = true
+default_category = "未分类"
+
+[search]
+default_limit = 50
+enable_fts = true
+fts_language = "simple"
+
+[database]
+path = "./.sqlx-data/tagbox.db"
+journal_mode = "WAL"
+sync_mode = "NORMAL"
+
+[hash]
+algorithm = "blake3"
+verify_on_import = true
