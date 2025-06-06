@@ -24,29 +24,45 @@ impl SearchBar {
         h: i32,
         event_sender: Sender<AppEvent>
     ) -> Self {
-        // 搜索输入框 (70% 宽度)
-        let mut input = Input::new(x, y, (w as f32 * 0.7) as i32, h, None);
-        input.set_value("Search (e.g. tag:Rust -tag:旧版)");
-        input.set_text_color(Color::from_rgb(128, 128, 128));
+        // 使用 Flex 布局管理器
+        let mut container = fltk::group::Group::new(x, y, w, h, None);
+        container.set_color(Color::from_rgb(248, 249, 250));
         
-        // 高级搜索按钮 (15% 宽度)
-        let btn_x = x + (w as f32 * 0.7) as i32 + 10;
-        let btn_w = (w as f32 * 0.15) as i32;
-        let mut advanced_btn = Button::new(btn_x, y, btn_w, h, "Advanced");
+        let mut flex = fltk::group::Flex::new(x, y, w, h, None);
+        flex.set_type(fltk::group::FlexType::Row);
+        flex.set_spacing(10);
+        flex.set_margin(5);
+        
+        // 搜索输入框 (占用大部分空间)
+        let mut input = Input::new(0, 0, 0, h - 10, None);
+        input.set_value("Search files, tags, authors...");
+        input.set_text_color(Color::from_rgb(128, 128, 128));
+        input.set_color(Color::White);
+        input.set_text_size(13);
+        // 让输入框占用大部分空间
+        
+        // 高级搜索按钮 (固定宽度)
+        let mut advanced_btn = Button::new(0, 0, 0, h - 10, "Advanced");
         advanced_btn.set_color(Color::from_rgb(0, 123, 255));
         advanced_btn.set_label_color(Color::White);
+        advanced_btn.set_label_size(12);
+        flex.fixed(&advanced_btn, 80);
+        
+        flex.end();
+        container.end();
         
         // 建议菜单 (隐藏状态)
-        let mut suggestions_menu = MenuButton::new(x, y + h, (w as f32 * 0.7) as i32, 0, None);
+        let mut suggestions_menu = MenuButton::new(x, y + h, w - 90, 0, None);
         suggestions_menu.hide();
         
-        // 设置回调
+        // 设置回调 - 支持回车键即时搜索
         let sender_clone = event_sender.clone();
         input.set_callback(move |input| {
             let key = fltk::app::event_key();
             if key == Key::Enter {
                 let query = input.value();
-                if !query.trim().is_empty() && !query.contains("Search (e.g.") {
+                if !query.trim().is_empty() && !query.contains("Search files, tags, authors...") {
+                    println!("Executing search: {}", query);
                     let _ = sender_clone.send(AppEvent::SearchQuery(query));
                 }
             }
@@ -54,9 +70,11 @@ impl SearchBar {
         
         let sender_clone = event_sender.clone();
         advanced_btn.set_callback(move |_| {
-            // TODO: 打开高级搜索对话框
-            // TODO: 实现高级搜索对话框
-            // let _ = sender_clone.send(AppEvent::AdvancedSearch(search_options));
+            // 打开高级搜索对话框
+            println!("Opening advanced search dialog...");
+            // TODO: 创建并显示高级搜索对话框
+            // let mut dialog = AdvancedSearchDialog::new(sender_clone.clone());
+            // dialog.show();
         });
         
         Self {
@@ -69,7 +87,7 @@ impl SearchBar {
     
     pub fn get_query(&self) -> String {
         let value = self.input.value();
-        if value.contains("Search (e.g.") {
+        if value.contains("Search files, tags, authors...") {
             String::new()
         } else {
             value
@@ -85,7 +103,7 @@ impl SearchBar {
     
     pub fn clear(&mut self) {
         self.input.set_value("");
-        self.set_placeholder("Search (e.g. tag:Rust -tag:旧版)");
+        self.set_placeholder("Search files, tags, authors...");
     }
     
     pub fn set_loading(&mut self, loading: bool) {
@@ -122,24 +140,28 @@ impl SearchBar {
         self.suggestions_menu.hide();
     }
     
-    // 启用实时搜索建议
+    // 启用实时搜索建议和改进的用户体验
     pub fn enable_live_suggestions(&mut self, _config: AppConfig) {
-        let _sender = self.event_sender.clone();
+        let sender = self.event_sender.clone();
         self.input.handle(move |input, event| {
             match event {
                 fltk::enums::Event::KeyUp => {
                     let query = input.value();
-                    if !query.is_empty() && !query.contains("Search (e.g.") && query.len() > 2 {
-                        // 发送模糊搜索请求获取建议
-                        // TODO: 实现建议功能
-                        // let _ = sender.send(AppEvent::RequestSuggestions(query));
+                    if !query.is_empty() && !query.contains("Search files, tags, authors...") && query.len() > 2 {
+                        // 实时搜索 - 当用户输入时立即触发搜索
+                        println!("Live search triggered: {}", query);
+                        let _ = sender.send(AppEvent::SearchQuery(query.clone()));
+                    } else if query.trim().is_empty() || query.len() <= 2 {
+                        // 清空搜索结果
+                        println!("Clearing search results");
+                        let _ = sender.send(AppEvent::SearchQuery("*".to_string()));
                     }
                     false
                 }
                 fltk::enums::Event::Focus => {
                     // 获得焦点时清除占位符
                     let value = input.value();
-                    if value.contains("Search (e.g.") {
+                    if value.contains("Search files, tags, authors...") {
                         input.set_value("");
                         input.set_text_color(Color::Black);
                     }
@@ -149,7 +171,7 @@ impl SearchBar {
                     // 失去焦点时恢复占位符
                     let value = input.value();
                     if value.trim().is_empty() {
-                        input.set_value("Search (e.g. tag:Rust -tag:旧版)");
+                        input.set_value("Search files, tags, authors...");
                         input.set_text_color(Color::from_rgb(128, 128, 128));
                     }
                     false
@@ -157,5 +179,28 @@ impl SearchBar {
                 _ => false,
             }
         });
+    }
+    
+    // 执行搜索
+    pub fn execute_search(&self) {
+        let query = self.get_query();
+        if !query.is_empty() {
+            println!("Executing manual search: {}", query);
+            let _ = self.event_sender.send(AppEvent::SearchQuery(query));
+        } else {
+            // 如果查询为空，显示所有文件
+            let _ = self.event_sender.send(AppEvent::SearchQuery("*".to_string()));
+        }
+    }
+    
+    // 设置搜索查询
+    pub fn set_query(&mut self, query: &str) {
+        self.input.set_value(query);
+        self.input.set_text_color(Color::Black);
+    }
+    
+    // 获取搜索组件的引用（用于主窗口布局）
+    pub fn widget(&mut self) -> &mut Input {
+        &mut self.input
     }
 }

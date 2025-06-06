@@ -31,6 +31,10 @@ impl App {
         let app = fltk::app::App::default();
         self.main_window.show();
         
+        // 启动时自动加载所有文件
+        tracing::info!("Loading initial file list...");
+        self.async_bridge.spawn_load_all_files(self.config.clone());
+        
         while app.wait() {
             // 处理应用事件
             if let Ok(event) = self.event_receiver.try_recv() {
@@ -113,6 +117,20 @@ impl App {
             AppEvent::ShowStatistics => {
                 tracing::info!("Showing statistics");
                 self.main_window.show_statistics_dialog();
+            }
+            AppEvent::FileLoaded(file) => {
+                tracing::info!("File loaded: {}", file.title);
+                self.main_window.display_file_details(&file);
+            }
+            AppEvent::FileImported(file) => {
+                tracing::info!("File imported: {}", file.title);
+                // 可以显示导入成功的通知
+                self.main_window.show_import_success(&file);
+            }
+            AppEvent::AdvancedSearch(options) => {
+                tracing::info!("Performing advanced search");
+                self.main_window.set_loading(true);
+                self.async_bridge.spawn_advanced_search(options, self.config.clone());
             }
             _ => {
                 tracing::debug!("Unhandled event: {:?}", event);

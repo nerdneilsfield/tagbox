@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use tagbox_core::types::{SearchOptions, SearchResult};
+use tagbox_core::types::{SearchOptions, SearchResult, FileEntry};
 
 #[derive(Debug, Clone)]
 pub enum AppEvent {
@@ -10,6 +10,8 @@ pub enum AppEvent {
     
     // 文件操作
     FileSelected(String), // file_id
+    FileLoaded(FileEntry), // 文件详情加载完成
+    FileImported(FileEntry), // 文件导入成功
     FileOpen(String),
     FileEdit(String),
     FileImport(PathBuf),

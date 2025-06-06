@@ -47,15 +47,12 @@ impl FileList {
     
     fn setup_callbacks(&mut self) {
         let sender = self.event_sender.clone();
-        let files_ptr = &self.files as *const Vec<FileEntry>;
         
         self.browser.set_callback(move |browser| {
             let selected = browser.value();
             if selected > 0 {
-                let files = unsafe { &*files_ptr };
-                if let Some(file) = files.get((selected - 1) as usize) {
-                    let _ = sender.send(AppEvent::FileSelected(file.id.clone()));
-                }
+                // 为了简化起见，我们发送选中的索引，然后在主窗口中处理
+                let _ = sender.send(AppEvent::FileSelected(format!("index:{}", selected - 1)));
             }
         });
     }
@@ -66,34 +63,61 @@ impl FileList {
         // 清空浏览器
         self.browser.clear();
         
-        // 添加文件到浏览器
-        for file in &self.files {
+        if self.files.is_empty() {
+            // 显示空状态提示
+            self.browser.add("No files found. Try a different search or import some files.");
+            self.browser.deactivate();
+            return Ok(());
+        }
+        
+        // 激活浏览器
+        self.browser.activate();
+        
+        // 添加文件到浏览器，使用改进的格式
+        for (index, file) in self.files.iter().enumerate() {
             let display_title = if file.title.is_empty() {
                 &file.original_filename
             } else {
                 &file.title
             };
             
+            // 限制标题长度以保持格式整洁
+            let title = if display_title.len() > 40 {
+                format!("{}...", &display_title[..37])
+            } else {
+                display_title.to_string()
+            };
+            
             let authors_str = if file.authors.is_empty() {
-                "Unknown"
+                "Unknown".to_string()
             } else {
-                &file.authors.join(", ")
+                let authors = file.authors.join(", ");
+                if authors.len() > 25 {
+                    format!("{}...", &authors[..22])
+                } else {
+                    authors
+                }
             };
             
-            let year_str = file.year.map(|y| y.to_string()).unwrap_or_else(|| "N/A".to_string());
+            let year_str = file.year.map(|y| y.to_string()).unwrap_or_else(|| "----".to_string());
             
-            let tags_str = if file.tags.is_empty() {
-                "No tags"
+            let tags_count = file.tags.len();
+            let tags_str = if tags_count == 0 {
+                "No tags".to_string()
+            } else if tags_count == 1 {
+                file.tags[0].clone()
             } else {
-                &file.tags.join(", ")
+                format!("{} tags", tags_count)
             };
             
-            let line = format!("{} | {} | {} | {}", 
-                display_title, authors_str, year_str, tags_str);
+            // 使用固定宽度格式，增加可读性
+            let line = format!("{:3}: {:40} | {:25} | {:4} | {}", 
+                index + 1, title, authors_str, year_str, tags_str);
             
             self.browser.add(&line);
         }
         
+        println!("Loaded {} files into file list", self.files.len());
         Ok(())
     }
     
@@ -116,8 +140,29 @@ impl FileList {
             if file.id == file_id {
                 self.selected_index = Some(index);
                 self.browser.select(index as i32 + 1);
+                println!("Selected file: {} (index: {})", file.title, index);
                 break;
             }
+        }
+    }
+    
+    // 根据索引选择文件
+    pub fn select_file_by_index(&mut self, index: usize) {
+        if index < self.files.len() {
+            self.selected_index = Some(index);
+            self.browser.select(index as i32 + 1);
+            if let Some(file) = self.files.get(index) {
+                println!("Selected file by index: {} (index: {})", file.title, index);
+            }
+        }
+    }
+    
+    // 获取当前选中的文件
+    pub fn get_current_selection(&self) -> Option<&FileEntry> {
+        if let Some(index) = self.selected_index {
+            self.files.get(index)
+        } else {
+            None
         }
     }
     

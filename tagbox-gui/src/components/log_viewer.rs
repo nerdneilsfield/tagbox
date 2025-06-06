@@ -161,10 +161,11 @@ impl LogViewer {
     
     fn setup_callbacks(&mut self) {
         // 刷新按钮
-        let sender = self.event_sender.clone();
+        let mut viewer_clone = self.clone_for_callback();
         self.refresh_btn.set_callback(move |_| {
-            // TODO: 刷新日志内容
-            println!("Refreshing logs...");
+            if let Err(e) = viewer_clone.refresh_logs() {
+                eprintln!("Failed to refresh logs: {}", e);
+            }
         });
         
         // 清除按钮
@@ -176,8 +177,9 @@ impl LogViewer {
         });
         
         // 导出按钮
+        let buffer_clone = self.text_buffer.clone();
         self.export_btn.set_callback(move |_| {
-            Self::export_logs();
+            Self::export_logs_with_content(&buffer_clone);
         });
         
         // 搜索按钮
@@ -191,10 +193,10 @@ impl LogViewer {
         });
         
         // 日志级别筛选
+        let mut viewer_clone2 = self.clone_for_callback();
         self.log_level_filter.set_callback(move |choice| {
             let level = LogLevel::from_index(choice.value());
-            println!("Filter changed to: {}", level.as_str());
-            // TODO: 应用筛选
+            viewer_clone2.set_filter(level);
         });
         
         // 搜索框回车键
@@ -215,6 +217,18 @@ impl LogViewer {
     }
     
     pub fn show(&mut self) {
+        // 在显示窗口前自动检测并加载日志文件
+        if let Some(log_path) = Self::detect_log_file() {
+            if let Err(e) = self.load_log_file(&log_path) {
+                eprintln!("Failed to load log file: {}", e);
+                // 显示错误但仍然打开窗口
+                self.text_buffer.set_text(&format!("Failed to load log file: {}\n\nPath: {}", e, log_path.display()));
+            }
+        } else {
+            // 没有找到日志文件，显示提示信息
+            self.text_buffer.set_text("No log file found.\n\nPossible locations:\n- ./tagbox.log\n- ./logs/tagbox.log\n- ./target/debug/tagbox.log\n\nPlease check if logging is enabled in your configuration.");
+        }
+        
         self.window.show();
     }
     
@@ -294,16 +308,16 @@ impl LogViewer {
     }
     
     fn search_in_logs(text_display: &mut TextDisplay, query: &str) {
-        // TODO: 实现日志搜索功能
-        println!("Searching for: {}", query);
-        
-        // 简单的搜索实现
         if let Some(mut buffer) = text_display.buffer() {
             let text = buffer.text();
             if let Some(pos) = text.find(query) {
                 // 移动到找到的位置
                 buffer.select(pos as i32, (pos + query.len()) as i32);
                 text_display.show_insert_position();
+                println!("Found '{}' at position {}", query, pos);
+            } else {
+                println!("'{}' not found in log content", query);
+                fltk::dialog::message_default(&format!("Search term '{}' not found in current log content.", query));
             }
         }
     }
@@ -318,7 +332,7 @@ impl LogViewer {
         choice == Some(0)
     }
     
-    fn export_logs() {
+    fn export_logs_with_content(buffer: &TextBuffer) {
         let mut dialog = fltk::dialog::NativeFileChooser::new(
             fltk::dialog::NativeFileChooserType::BrowseSaveFile
         );
@@ -328,8 +342,15 @@ impl LogViewer {
         
         let filename = dialog.filename();
         if !filename.to_string_lossy().is_empty() {
-            // TODO: 导出日志到选择的文件
-            println!("Exporting logs to: {}", filename.display());
+            let content = buffer.text();
+            match std::fs::write(&filename, content) {
+                Ok(()) => {
+                    fltk::dialog::message_default(&format!("Logs exported successfully!\n\nFile: {}", filename.display()));
+                },
+                Err(e) => {
+                    fltk::dialog::alert_default(&format!("Failed to export logs:\n{}\n\nFile: {}", e, filename.display()));
+                }
+            }
         }
     }
     
@@ -401,6 +422,125 @@ impl LogViewer {
     pub fn stop_monitoring(&mut self) {
         // TODO: 停止文件监控
         println!("Stopping log file monitoring...");
+    }
+    
+    // 检测日志文件路径
+    fn detect_log_file() -> Option<std::path::PathBuf> {
+        let possible_paths = [
+            "./tagbox.log",
+            "./logs/tagbox.log", 
+            "./target/debug/tagbox.log",
+            "./target/release/tagbox.log",
+            "/tmp/tagbox.log",
+            "~/.cache/tagbox/tagbox.log",
+        ];
+        
+        for path_str in &possible_paths {
+            let path = std::path::PathBuf::from(path_str);
+            if path.exists() && path.is_file() {
+                return Some(path);
+            }
+        }
+        
+        None
+    }
+    
+    // 创建用于回调的克隆
+    fn clone_for_callback(&self) -> LogViewerCallback {
+        LogViewerCallback {
+            text_buffer: self.text_buffer.clone(),
+            text_display: self.text_display.clone(),
+            log_file_path: self.log_file_path.clone(),
+            current_filter: self.current_filter.clone(),
+            log_level_filter: self.log_level_filter.clone(),
+        }
+    }
+}
+
+// 用于回调的轻量级结构体
+#[derive(Clone)]
+struct LogViewerCallback {
+    text_buffer: TextBuffer,
+    text_display: TextDisplay,
+    log_file_path: Option<PathBuf>,
+    current_filter: LogLevel,
+    log_level_filter: Choice,
+}
+
+impl LogViewerCallback {
+    fn refresh_logs(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(log_path) = &self.log_file_path {
+            let content = self.read_log_file(log_path)?;
+            let filtered_content = self.apply_filter(&content);
+            self.text_buffer.set_text(&filtered_content);
+            
+            // 滚动到底部显示最新日志
+            let line_count = self.text_buffer.count_lines(0, self.text_buffer.length());
+            self.text_display.scroll(line_count, 0);
+        }
+        Ok(())
+    }
+    
+    fn read_log_file(&self, path: &Path) -> Result<String, Box<dyn std::error::Error>> {
+        if !path.exists() {
+            return Ok("Log file not found.".to_string());
+        }
+        
+        let file = fs::File::open(path)?;
+        let reader = BufReader::new(file);
+        let mut content = String::new();
+        
+        // 读取最后N行（避免内存问题）
+        let max_lines = 10000;
+        let lines: Vec<String> = reader.lines()
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        let start_index = if lines.len() > max_lines {
+            lines.len() - max_lines
+        } else {
+            0
+        };
+        
+        for line in &lines[start_index..] {
+            content.push_str(line);
+            content.push('\n');
+        }
+        
+        if lines.len() > max_lines {
+            content.insert_str(0, &format!("... (showing last {} lines)\n\n", max_lines));
+        }
+        
+        Ok(content)
+    }
+    
+    fn apply_filter(&self, content: &str) -> String {
+        if self.current_filter == LogLevel::All {
+            return content.to_string();
+        }
+        
+        let filter_str = self.current_filter.as_str();
+        content.lines()
+            .filter(|line| line.contains(filter_str))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+    
+    fn set_filter(&mut self, level: LogLevel) {
+        self.current_filter = level.clone();
+        let index = match level {
+            LogLevel::All => 0,
+            LogLevel::Error => 1,
+            LogLevel::Warn => 2,
+            LogLevel::Info => 3,
+            LogLevel::Debug => 4,
+            LogLevel::Trace => 5,
+        };
+        self.log_level_filter.set_value(index);
+        
+        // 重新应用筛选
+        if let Err(e) = self.refresh_logs() {
+            eprintln!("Failed to refresh logs: {}", e);
+        }
     }
 }
 

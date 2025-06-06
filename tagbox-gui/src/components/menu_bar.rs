@@ -296,14 +296,43 @@ impl AppMenuBar {
     }
     
     fn edit_current_config() {
-        println!("Editing current config file");
-        fltk::dialog::message_default("Config file editing functionality will be implemented soon!\n\nCurrently using: ./config.toml");
+        let config_path = std::path::Path::new("./config.toml");
+        if config_path.exists() {
+            match Self::open_file_with_system_editor(config_path) {
+                Ok(()) => {
+                    fltk::dialog::message_default("Configuration file opened in system editor.\n\nPlease restart the application after making changes.");
+                },
+                Err(e) => {
+                    fltk::dialog::alert_default(&format!("Failed to open config file:\n{}\n\nPath: {}", e, config_path.display()));
+                }
+            }
+        } else {
+            fltk::dialog::alert_default("Configuration file not found!\n\nPath: ./config.toml\n\nPlease create a config file first.");
+        }
     }
     
     fn create_new_config_file() {
         if let Some(path) = Self::save_new_config_dialog() {
-            println!("Creating new config file: {}", path.display());
-            fltk::dialog::message_default(&format!("New config file will be created at:\n{}\n\nThis functionality will be implemented soon!", path.display()));
+            match Self::create_default_config_file(&path) {
+                Ok(()) => {
+                    fltk::dialog::message_default(&format!("Configuration file created successfully!\n\nPath: {}\n\nYou can now edit it or restart the application to use it.", path.display()));
+                    
+                    // 询问是否立即编辑
+                    let choice = fltk::dialog::choice2_default(
+                        "Would you like to open the configuration file for editing?",
+                        "Yes",
+                        "No",
+                        ""
+                    );
+                    
+                    if choice == Some(0) {
+                        let _ = Self::open_file_with_system_editor(&path);
+                    }
+                },
+                Err(e) => {
+                    fltk::dialog::alert_default(&format!("Failed to create config file:\n{}", e));
+                }
+            }
         }
     }
     
@@ -396,6 +425,90 @@ Licensed under MIT License
 "#;
         
         fltk::dialog::message_default(about_text);
+    }
+    
+    // 使用系统默认编辑器打开文件
+    fn open_file_with_system_editor(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+        use std::process::Command;
+        
+        #[cfg(target_os = "windows")]
+        {
+            Command::new("notepad")
+                .arg(path)
+                .spawn()?;
+        }
+        
+        #[cfg(target_os = "macos")]
+        {
+            Command::new("open")
+                .arg("-t") // 使用文本编辑器打开
+                .arg(path)
+                .spawn()?;
+        }
+        
+        #[cfg(target_os = "linux")]
+        {
+            // 尝试几种常见的编辑器
+            let editors = ["gedit", "kate", "xed", "mousepad", "nano"];
+            let mut opened = false;
+            
+            for editor in &editors {
+                if let Ok(mut child) = Command::new(editor)
+                    .arg(path)
+                    .spawn()
+                {
+                    opened = true;
+                    break;
+                }
+            }
+            
+            if !opened {
+                // 作为最后的备用方案，尝试 xdg-open
+                Command::new("xdg-open")
+                    .arg(path)
+                    .spawn()?;
+            }
+        }
+        
+        Ok(())
+    }
+    
+    // 创建默认配置文件
+    fn create_default_config_file(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+        use std::fs;
+        
+        let default_config = r#"[import.paths]
+storage_dir = "./tagbox_data/files"
+rename_template = "{title}_{authors}_{year}"
+classify_template = "{category1}/{filename}"
+
+[import.metadata]
+prefer_json = true
+fallback_pdf = true
+default_category = "未分类"
+
+[search]
+default_limit = 50
+enable_fts = true
+fts_language = "simple"
+
+[database]
+path = "./.sqlx-data/tagbox.db"
+journal_mode = "WAL"
+sync_mode = "NORMAL"
+
+[hash]
+algorithm = "blake3"
+verify_on_import = true
+"#;
+        
+        // 创建目录如果不存在
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        
+        fs::write(path, default_config)?;
+        Ok(())
     }
     
     pub fn widget(&mut self) -> &mut MenuBar {
