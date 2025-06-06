@@ -6,5 +6,23 @@ authors = ["Qi Deng<dengqi935@gmail.com>"]
 description = "Core library for TagBox file management system"
 
 [dependencies]
+# GUI 框架
 fltk = { version = "1.4", features = ["fltk-bundled"] }
 fltk-table = "0.3"
+
+# 异步运行时
+tokio = { version = "1.0", features = ["full"] }
+futures = "0.3"
+
+# 项目依赖
+tagbox-core = { path = "../tagbox-core" }
+
+# 工具库
+tracing = "0.1"
+tracing-subscriber = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+uuid = { version = "1.0", features = ["v4"] }
+
+# 系统操作
+dirs = "5.0"
+clipboard = "0.5"
