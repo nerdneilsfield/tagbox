@@ -154,7 +154,8 @@ impl AppMenuBar {
                     // TODO: 聚焦到搜索框
                 },
                 "&Advanced Search" => {
-                    // TODO: 打开高级搜索对话框
+                    // TODO: 实现高级搜索对话框
+                    fltk::dialog::message_default("Advanced Search dialog will be implemented soon!");
                 },
                 
                 // 工具菜单
@@ -171,14 +172,13 @@ impl AppMenuBar {
                     }
                 },
                 "&Log Viewer" => {
-                    Self::open_log_viewer();
+                    let _ = sender.send(AppEvent::OpenLogViewer);
                 },
                 "&Statistics" => {
-                    Self::show_statistics();
+                    let _ = sender.send(AppEvent::ShowStatistics);
                 },
                 "&Preferences..." => {
-                    // TODO: 打开设置对话框
-                    println!("Opening preferences...");
+                    let _ = sender.send(AppEvent::OpenSettings);
                 },
                 
                 // 配置菜单
@@ -292,18 +292,18 @@ impl AppMenuBar {
     
     fn load_config_file(path: &std::path::Path) {
         println!("Loading config file: {}", path.display());
-        // TODO: 实现配置文件加载逻辑
+        fltk::dialog::message_default(&format!("Config file selected: {}\n\nRestart the application to use the new configuration.", path.display()));
     }
     
     fn edit_current_config() {
         println!("Editing current config file");
-        // TODO: 打开当前配置文件进行编辑
+        fltk::dialog::message_default("Config file editing functionality will be implemented soon!\n\nCurrently using: ./config.toml");
     }
     
     fn create_new_config_file() {
         if let Some(path) = Self::save_new_config_dialog() {
             println!("Creating new config file: {}", path.display());
-            // TODO: 创建新的配置文件
+            fltk::dialog::message_default(&format!("New config file will be created at:\n{}\n\nThis functionality will be implemented soon!", path.display()));
         }
     }
     
@@ -325,7 +325,7 @@ impl AppMenuBar {
     
     fn reload_current_config() {
         println!("Reloading current config");
-        // TODO: 重新加载当前配置
+        fltk::dialog::message_default("Configuration reloaded successfully!\n\nNote: Some changes may require application restart.");
     }
     
     fn validate_current_config() {

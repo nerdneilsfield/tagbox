@@ -221,6 +221,10 @@ impl LogViewer {
     pub fn hide(&mut self) {
         self.window.hide();
     }
+
+    pub fn shown(&self) -> bool {
+        self.window.shown()
+    }
     
     pub fn load_log_file(&mut self, log_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
         self.log_file_path = Some(log_path.to_path_buf());

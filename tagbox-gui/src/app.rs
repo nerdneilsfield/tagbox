@@ -102,6 +102,18 @@ impl App {
                 self.main_window.set_loading(false);
                 fltk::dialog::alert_default(&format!("Error: {}", msg));
             }
+            AppEvent::OpenSettings => {
+                tracing::info!("Opening settings dialog");
+                self.main_window.open_settings_dialog();
+            }
+            AppEvent::OpenLogViewer => {
+                tracing::info!("Opening log viewer");
+                self.main_window.open_log_viewer_dialog();
+            }
+            AppEvent::ShowStatistics => {
+                tracing::info!("Showing statistics");
+                self.main_window.show_statistics_dialog();
+            }
             _ => {
                 tracing::debug!("Unhandled event: {:?}", event);
             }

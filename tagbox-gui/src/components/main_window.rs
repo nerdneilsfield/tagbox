@@ -277,4 +277,53 @@ impl MainWindow {
             false
         }
     }
+    
+    // 打开设置对话框
+    pub fn open_settings_dialog(&mut self) {
+        use crate::components::SettingsDialog;
+        
+        let mut dialog = SettingsDialog::new(self.event_sender.clone());
+        dialog.load_config(self.state.config.clone(), None);
+        dialog.show();
+        
+        // 等待对话框关闭
+        while dialog.shown() {
+            fltk::app::wait();
+        }
+    }
+    
+    // 打开日志查看器对话框
+    pub fn open_log_viewer_dialog(&mut self) {
+        use crate::components::LogViewer;
+        
+        let mut log_viewer = LogViewer::new(self.event_sender.clone());
+        log_viewer.show();
+        
+        // 等待对话框关闭
+        while log_viewer.shown() {
+            fltk::app::wait();
+        }
+    }
+    
+    // 显示统计信息对话框
+    pub fn show_statistics_dialog(&mut self) {
+        // 简单的统计信息显示
+        let stats_text = format!(
+            "TagBox Statistics\n\n\
+            Current Files: {}\n\
+            Selected File: {}\n\
+            Current Query: \"{}\"\n\
+            Database Path: {}\n\
+            Storage Path: {}",
+            self.state.current_files.len(),
+            self.state.selected_file.as_ref()
+                .map(|f| f.title.as_str())
+                .unwrap_or("None"),
+            self.state.current_query,
+            self.state.config.database.path.display(),
+            self.state.config.import.paths.storage_dir.display()
+        );
+        
+        fltk::dialog::message_default(&stats_text);
+    }
 }

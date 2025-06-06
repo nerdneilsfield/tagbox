@@ -320,6 +320,10 @@ impl SettingsDialog {
     pub fn hide(&mut self) {
         self.window.hide();
     }
+
+    pub fn shown(&self) -> bool {
+        self.window.shown()
+    }
     
     pub fn load_config(&mut self, config: AppConfig, config_path: Option<PathBuf>) {
         self.current_config = Some(config.clone());

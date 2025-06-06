@@ -29,4 +29,7 @@ pub enum AppEvent {
     // UI 事件
     WindowResize(i32, i32),
     RefreshView,
+    OpenSettings,
+    OpenLogViewer,
+    ShowStatistics,
 }
