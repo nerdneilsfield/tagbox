@@ -70,7 +70,9 @@ impl App {
             }
             AppEvent::CategorySelect(category_path) => {
                 tracing::info!("Category selected: {}", category_path);
-                self.main_window.handle_category_select(category_path);
+                self.main_window.handle_category_select(category_path.clone());
+                self.main_window.set_loading(true);
+                self.async_bridge.spawn_category_search(category_path, self.config.clone());
             }
             AppEvent::CategoryExpand(category_path) => {
                 tracing::info!("Category expanded: {}", category_path);

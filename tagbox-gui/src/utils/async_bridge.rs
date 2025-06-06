@@ -137,6 +137,34 @@ impl AsyncBridge {
             let _ = sender.send(AppEvent::LoadingEnd);
         });
     }
+    
+    pub fn spawn_category_search(&self, category_path: String, config: AppConfig) {
+        let sender = self.event_sender.clone();
+        self.runtime.spawn(async move {
+            info!("Searching files in category: {}", category_path);
+            let _ = sender.send(AppEvent::LoadingStart);
+            
+            // 构建分类搜索查询
+            let query = if category_path.is_empty() || category_path == "All Files" {
+                "*".to_string() // 显示所有文件
+            } else {
+                format!("category:{}", category_path)
+            };
+            
+            match tagbox_core::search_files_advanced(&query, None, &config).await {
+                Ok(result) => {
+                    info!("Category search completed: {} results", result.entries.len());
+                    let _ = sender.send(AppEvent::SearchResults(result));
+                }
+                Err(e) => {
+                    error!("Category search failed: {}", e);
+                    let _ = sender.send(AppEvent::Error(format!("Category search failed: {}", e)));
+                }
+            }
+            
+            let _ = sender.send(AppEvent::LoadingEnd);
+        });
+    }
 
     pub fn spawn_load_all_files(&self, config: AppConfig) {
         let sender = self.event_sender.clone();

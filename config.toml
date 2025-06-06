@@ -19,5 +19,6 @@ journal_mode = "WAL"
 sync_mode = "NORMAL"
 
 [hash]
-algorithm = "blake3"
+# Hash algorithm for file integrity checking (blake2b, sha256, blake3, xxh3_128)
+algorithm = "xxh3_128"
 verify_on_import = true

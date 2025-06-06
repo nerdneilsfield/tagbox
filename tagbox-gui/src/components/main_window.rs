@@ -157,7 +157,10 @@ impl MainWindow {
             }
         });
         
-        self.state.set_files(search_result.entries);
+        self.state.set_files(search_result.entries.clone());
+        
+        // 更新分类树的文件计数
+        self.category_tree.update_file_counts(&search_result.entries);
         
         // 更新状态栏
         self.status_bar.set_file_count(self.state.get_files().len(), None);

@@ -81,9 +81,10 @@ impl FileList {
                 &file.title
             };
             
-            // 限制标题长度以保持格式整洁
-            let title = if display_title.len() > 40 {
-                format!("{}...", &display_title[..37])
+            // 限制标题长度以保持格式整洁（按字符数而不是字节数）
+            let title = if display_title.chars().count() > 40 {
+                let truncated: String = display_title.chars().take(37).collect();
+                format!("{}...", truncated)
             } else {
                 display_title.to_string()
             };
@@ -92,8 +93,9 @@ impl FileList {
                 "Unknown".to_string()
             } else {
                 let authors = file.authors.join(", ");
-                if authors.len() > 25 {
-                    format!("{}...", &authors[..22])
+                if authors.chars().count() > 25 {
+                    let truncated: String = authors.chars().take(22).collect();
+                    format!("{}...", truncated)
                 } else {
                     authors
                 }
