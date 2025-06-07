@@ -3,19 +3,18 @@ use fltk::{
     window::Window,
     group::{Flex, FlexType, Tabs, Group},
     input::{Input, IntInput},
-    button::Button,
-    menu::Choice,
-    enums::Color,
+    button::{Button, CheckButton},
+    enums::{Color, Align},
     frame::Frame,
-    text::{TextEditor, TextBuffer},
     output::Output,
-    dialog::NativeFileChooser,
+    dialog::{NativeFileChooser, FileDialogType},
 };
 use std::sync::mpsc::Sender;
 use std::path::{Path, PathBuf};
+use std::fs;
 use tagbox_core::config::AppConfig;
 use crate::state::AppEvent;
-use crate::utils::open_file;
+use chrono;
 
 pub struct SettingsDialog {
     window: Window,
@@ -24,15 +23,7 @@ pub struct SettingsDialog {
     config_path_output: Output,
     browse_config_btn: Button,
     edit_config_btn: Button,
-    new_config_btn: Button,
     reload_config_btn: Button,
-    
-    // 日志设置
-    log_level_choice: Choice,
-    log_file_output: Output,
-    browse_log_btn: Button,
-    open_log_btn: Button,
-    clear_log_btn: Button,
     
     // 数据库设置
     db_path_output: Output,
@@ -43,13 +34,12 @@ pub struct SettingsDialog {
     // 导入设置
     import_path_input: Input,
     browse_import_btn: Button,
-    auto_extract_checkbox: fltk::button::CheckButton,
-    auto_move_checkbox: fltk::button::CheckButton,
+    auto_extract_checkbox: CheckButton,
+    auto_move_checkbox: CheckButton,
     
-    // 界面设置
-    theme_choice: Choice,
-    font_size_input: IntInput,
-    language_choice: Choice,
+    // 搜索设置
+    enable_fts_checkbox: CheckButton,
+    max_results_input: IntInput,
     
     // 操作按钮
     save_btn: Button,
@@ -59,108 +49,86 @@ pub struct SettingsDialog {
     // 状态
     current_config: Option<AppConfig>,
     config_path: Option<PathBuf>,
+    modified: bool,
     event_sender: Sender<AppEvent>,
 }
 
 impl SettingsDialog {
     pub fn new(event_sender: Sender<AppEvent>) -> Self {
-        let mut window = Window::new(200, 200, 600, 500, "Settings");
+        let mut window = Window::new(200, 200, 700, 550, "TagBox Settings");
         window.make_modal(true);
         window.set_color(Color::from_rgb(248, 249, 250));
         
-        let mut tabs = Tabs::new(10, 10, 580, 430, None);
+        let mut tabs = Tabs::new(10, 10, 680, 480, None);
         
-        // 配置管理标签页
-        let mut config_tab = Group::new(10, 35, 580, 405, "Configuration\t");
+        // 配置文件标签页
+        let mut config_tab = Group::new(10, 35, 680, 455, "Configuration\t");
         config_tab.set_color(Color::White);
-        Self::create_config_tab(&mut config_tab);
-        config_tab.end();
-        
-        // 日志设置标签页
-        let mut logging_tab = Group::new(10, 35, 580, 405, "Logging\t");
-        logging_tab.set_color(Color::White);
-        Self::create_logging_tab(&mut logging_tab);
-        logging_tab.end();
         
         // 数据库设置标签页
-        let mut database_tab = Group::new(10, 35, 580, 405, "Database\t");
+        let mut database_tab = Group::new(10, 35, 680, 455, "Database\t");
         database_tab.set_color(Color::White);
-        Self::create_database_tab(&mut database_tab);
-        database_tab.end();
         
         // 导入设置标签页
-        let mut import_tab = Group::new(10, 35, 580, 405, "Import\t");
+        let mut import_tab = Group::new(10, 35, 680, 455, "Import\t");
         import_tab.set_color(Color::White);
-        Self::create_import_tab(&mut import_tab);
+        
+        // 搜索设置标签页
+        let mut search_tab = Group::new(10, 35, 680, 455, "Search\t");
+        search_tab.set_color(Color::White);
+        
+        // 在各个标签页中创建控件
+        let (config_path_output, browse_config_btn, edit_config_btn, reload_config_btn) = 
+            Self::create_config_tab(&mut config_tab);
+        config_tab.end();
+        
+        let (db_path_output, browse_db_btn, backup_db_btn, rebuild_index_btn) = 
+            Self::create_database_tab(&mut database_tab);
+        database_tab.end();
+        
+        let (import_path_input, browse_import_btn, auto_extract_checkbox, auto_move_checkbox) = 
+            Self::create_import_tab(&mut import_tab);
         import_tab.end();
         
-        // 界面设置标签页
-        let mut ui_tab = Group::new(10, 35, 580, 405, "Interface\t");
-        ui_tab.set_color(Color::White);
-        Self::create_ui_tab(&mut ui_tab);
-        ui_tab.end();
+        let (enable_fts_checkbox, max_results_input) = 
+            Self::create_search_tab(&mut search_tab);
+        search_tab.end();
         
         tabs.end();
         
         // 底部按钮
-        let mut button_flex = Flex::new(10, 450, 580, 40, None);
+        let mut button_flex = Flex::new(10, 500, 680, 40, None);
         button_flex.set_type(FlexType::Row);
         button_flex.set_spacing(10);
         
-        let mut save_btn = Button::new(0, 0, 0, 0, "Save Settings");
+        // 空间填充
+        let mut spacer = Frame::new(0, 0, 0, 0, None);
+        button_flex.fixed(&spacer, 300);
+        
+        let mut save_btn = Button::new(0, 0, 100, 30, "Save");
         save_btn.set_color(Color::from_rgb(40, 167, 69));
         save_btn.set_label_color(Color::White);
+        button_flex.fixed(&save_btn, 100);
         
-        let mut reset_btn = Button::new(0, 0, 0, 0, "Reset to Defaults");
+        let mut reset_btn = Button::new(0, 0, 100, 30, "Reset");
         reset_btn.set_color(Color::from_rgb(255, 193, 7));
         reset_btn.set_label_color(Color::Black);
+        button_flex.fixed(&reset_btn, 100);
         
-        let mut cancel_btn = Button::new(0, 0, 0, 0, "Cancel");
+        let mut cancel_btn = Button::new(0, 0, 100, 30, "Cancel");
         cancel_btn.set_color(Color::from_rgb(108, 117, 125));
         cancel_btn.set_label_color(Color::White);
+        button_flex.fixed(&cancel_btn, 100);
         
         button_flex.end();
         window.end();
         
-        // 创建控件实例（简化版）
-        let config_path_output = Output::new(0, 0, 0, 0, None);
-        let browse_config_btn = Button::new(0, 0, 0, 0, "Browse...");
-        let edit_config_btn = Button::new(0, 0, 0, 0, "Edit");
-        let new_config_btn = Button::new(0, 0, 0, 0, "New");
-        let reload_config_btn = Button::new(0, 0, 0, 0, "Reload");
-        
-        let log_level_choice = Choice::new(0, 0, 0, 0, None);
-        let log_file_output = Output::new(0, 0, 0, 0, None);
-        let browse_log_btn = Button::new(0, 0, 0, 0, "Browse...");
-        let open_log_btn = Button::new(0, 0, 0, 0, "Open");
-        let clear_log_btn = Button::new(0, 0, 0, 0, "Clear");
-        
-        let db_path_output = Output::new(0, 0, 0, 0, None);
-        let browse_db_btn = Button::new(0, 0, 0, 0, "Browse...");
-        let backup_db_btn = Button::new(0, 0, 0, 0, "Backup");
-        let rebuild_index_btn = Button::new(0, 0, 0, 0, "Rebuild Index");
-        
-        let import_path_input = Input::new(0, 0, 0, 0, None);
-        let browse_import_btn = Button::new(0, 0, 0, 0, "Browse...");
-        let auto_extract_checkbox = fltk::button::CheckButton::new(0, 0, 0, 0, "Auto extract metadata");
-        let auto_move_checkbox = fltk::button::CheckButton::new(0, 0, 0, 0, "Auto move files");
-        
-        let theme_choice = Choice::new(0, 0, 0, 0, None);
-        let font_size_input = IntInput::new(0, 0, 0, 0, None);
-        let language_choice = Choice::new(0, 0, 0, 0, None);
-        
-        Self {
+        let mut dialog = Self {
             window,
             config_path_output,
             browse_config_btn,
             edit_config_btn,
-            new_config_btn,
             reload_config_btn,
-            log_level_choice,
-            log_file_output,
-            browse_log_btn,
-            open_log_btn,
-            clear_log_btn,
             db_path_output,
             browse_db_btn,
             backup_db_btn,
@@ -169,148 +137,245 @@ impl SettingsDialog {
             browse_import_btn,
             auto_extract_checkbox,
             auto_move_checkbox,
-            theme_choice,
-            font_size_input,
-            language_choice,
+            enable_fts_checkbox,
+            max_results_input,
             save_btn,
             cancel_btn,
             reset_btn,
             current_config: None,
             config_path: None,
+            modified: false,
             event_sender,
-        }
+        };
+        
+        dialog.setup_callbacks();
+        dialog
     }
     
-    fn create_config_tab(group: &mut Group) {
-        let padding = 20;
-        let mut y = 60;
-        let label_height = 20;
-        let field_height = 30;
-        let spacing = 15;
+    fn create_config_tab(group: &mut Group) -> (Output, Button, Button, Button) {
+        let mut flex = Flex::new(20, 50, 640, 400, None);
+        flex.set_type(FlexType::Column);
+        flex.set_spacing(20);
         
-        // 当前配置文件
-        let _config_label = Frame::new(padding, y, 200, label_height, "Current configuration file:");
-        y += label_height + 5;
+        // 配置文件路径组
+        let mut config_group = Group::new(0, 0, 640, 80, None);
+        let mut config_label = Frame::new(0, 0, 200, 25, "当前配置文件:");
+        config_label.set_align(Align::Left | Align::Inside);
         
-        let _config_path = Output::new(padding, y, 400, field_height, None);
-        let _browse_btn = Button::new(padding + 410, y, 80, field_height, "Browse...");
-        let _edit_btn = Button::new(padding + 500, y, 60, field_height, "Edit");
-        y += field_height + spacing;
+        let mut path_flex = Flex::new(0, 30, 640, 40, None);
+        path_flex.set_type(FlexType::Row);
+        path_flex.set_spacing(10);
         
-        // 配置操作
-        let _new_btn = Button::new(padding, y, 120, field_height, "New Config");
-        let _reload_btn = Button::new(padding + 130, y, 120, field_height, "Reload Config");
-        y += field_height + spacing;
+        let mut config_path_output = Output::new(0, 0, 0, 30, None);
+        config_path_output.set_color(Color::from_rgb(248, 249, 250));
+        path_flex.fixed(&config_path_output, 400);
         
-        // 配置验证状态
-        let _status_label = Frame::new(padding, y, 540, label_height, "Configuration Status: Valid");
+        let mut browse_config_btn = Button::new(0, 0, 80, 30, "Browse...");
+        browse_config_btn.set_color(Color::from_rgb(108, 117, 125));
+        browse_config_btn.set_label_color(Color::White);
+        path_flex.fixed(&browse_config_btn, 80);
+        
+        let mut edit_config_btn = Button::new(0, 0, 60, 30, "Edit");
+        edit_config_btn.set_color(Color::from_rgb(23, 162, 184));
+        edit_config_btn.set_label_color(Color::White);
+        path_flex.fixed(&edit_config_btn, 60);
+        
+        let mut reload_config_btn = Button::new(0, 0, 80, 30, "Reload");
+        reload_config_btn.set_color(Color::from_rgb(40, 167, 69));
+        reload_config_btn.set_label_color(Color::White);
+        path_flex.fixed(&reload_config_btn, 80);
+        
+        path_flex.end();
+        config_group.end();
+        flex.fixed(&config_group, 80);
+        
+        // 配置说明
+        let mut desc_frame = Frame::new(0, 0, 640, 120, 
+            "配置文件包含 TagBox 的所有设置，包括数据库路径、导入目录等。\n您可以直接编辑配置文件，或者使用下面的设置选项。\n\n支持的配置选项：\n• 数据库位置和连接设置\n• 文件导入和存储路径\n• 搜索和索引配置");
+        desc_frame.set_align(Align::Left | Align::Top | Align::Inside);
+        desc_frame.set_label_color(Color::from_rgb(108, 117, 125));
+        flex.fixed(&desc_frame, 120);
+        
+        flex.end();
+        group.add(&flex);
+        
+        (config_path_output, browse_config_btn, edit_config_btn, reload_config_btn)
     }
     
-    fn create_logging_tab(group: &mut Group) {
-        let padding = 20;
-        let mut y = 60;
-        let label_height = 20;
-        let field_height = 30;
-        let spacing = 15;
+    fn create_database_tab(group: &mut Group) -> (Output, Button, Button, Button) {
+        let mut flex = Flex::new(20, 50, 640, 400, None);
+        flex.set_type(FlexType::Column);
+        flex.set_spacing(20);
         
-        // 日志级别
-        let _level_label = Frame::new(padding, y, 150, label_height, "Log Level:");
-        y += label_height + 5;
+        // 数据库路径组
+        let mut db_group = Group::new(0, 0, 640, 80, None);
+        let mut db_label = Frame::new(0, 0, 200, 25, "数据库文件路径:");
+        db_label.set_align(Align::Left | Align::Inside);
         
-        let mut _level_choice = Choice::new(padding, y, 200, field_height, None);
-        y += field_height + spacing;
+        let mut db_flex = Flex::new(0, 30, 640, 40, None);
+        db_flex.set_type(FlexType::Row);
+        db_flex.set_spacing(10);
         
-        // 日志文件路径
-        let _log_file_label = Frame::new(padding, y, 150, label_height, "Log File:");
-        y += label_height + 5;
+        let mut db_path_output = Output::new(0, 0, 0, 30, None);
+        db_path_output.set_color(Color::from_rgb(248, 249, 250));
+        db_flex.fixed(&db_path_output, 500);
         
-        let _log_path = Output::new(padding, y, 350, field_height, None);
-        let _browse_log_btn = Button::new(padding + 360, y, 80, field_height, "Browse...");
-        let _open_log_btn = Button::new(padding + 450, y, 60, field_height, "Open");
-        y += field_height + spacing;
+        let mut browse_db_btn = Button::new(0, 0, 80, 30, "Browse...");
+        browse_db_btn.set_color(Color::from_rgb(108, 117, 125));
+        browse_db_btn.set_label_color(Color::White);
+        db_flex.fixed(&browse_db_btn, 80);
         
-        // 日志操作
-        let _clear_log_btn = Button::new(padding, y, 120, field_height, "Clear Log");
-        let _export_log_btn = Button::new(padding + 130, y, 120, field_height, "Export Log");
+        db_flex.end();
+        db_group.end();
+        flex.fixed(&db_group, 80);
+        
+        // 数据库操作组
+        let mut ops_group = Group::new(0, 0, 640, 60, None);
+        let mut ops_label = Frame::new(0, 0, 200, 25, "数据库操作:");
+        ops_label.set_align(Align::Left | Align::Inside);
+        
+        let mut ops_flex = Flex::new(0, 30, 640, 30, None);
+        ops_flex.set_type(FlexType::Row);
+        ops_flex.set_spacing(10);
+        
+        let mut backup_db_btn = Button::new(0, 0, 120, 30, "备份数据库");
+        backup_db_btn.set_color(Color::from_rgb(40, 167, 69));
+        backup_db_btn.set_label_color(Color::White);
+        ops_flex.fixed(&backup_db_btn, 120);
+        
+        let mut rebuild_index_btn = Button::new(0, 0, 120, 30, "重建索引");
+        rebuild_index_btn.set_color(Color::from_rgb(255, 193, 7));
+        rebuild_index_btn.set_label_color(Color::Black);
+        ops_flex.fixed(&rebuild_index_btn, 120);
+        
+        // 填充空间
+        let mut spacer = Frame::new(0, 0, 0, 0, None);
+        ops_flex.fixed(&spacer, 400);
+        
+        ops_flex.end();
+        ops_group.end();
+        flex.fixed(&ops_group, 60);
+        
+        // 数据库信息
+        let mut info_frame = Frame::new(0, 0, 640, 100,
+            "数据库设置:\n\n• SQLite 数据库用于存储文件元数据和全文索引\n• 备份功能可以保护您的数据\n• 重建索引可以修复搜索问题");
+        info_frame.set_align(Align::Left | Align::Top | Align::Inside);
+        info_frame.set_label_color(Color::from_rgb(108, 117, 125));
+        flex.fixed(&info_frame, 100);
+        
+        flex.end();
+        group.add(&flex);
+        
+        (db_path_output, browse_db_btn, backup_db_btn, rebuild_index_btn)
     }
     
-    fn create_database_tab(group: &mut Group) {
-        let padding = 20;
-        let mut y = 60;
-        let label_height = 20;
-        let field_height = 30;
-        let spacing = 15;
+    fn create_import_tab(group: &mut Group) -> (Input, Button, CheckButton, CheckButton) {
+        let mut flex = Flex::new(20, 50, 640, 400, None);
+        flex.set_type(FlexType::Column);
+        flex.set_spacing(20);
         
-        // 数据库路径
-        let _db_label = Frame::new(padding, y, 150, label_height, "Database File:");
-        y += label_height + 5;
+        // 导入路径组
+        let mut import_group = Group::new(0, 0, 640, 80, None);
+        let mut import_label = Frame::new(0, 0, 200, 25, "默认导入目录:");
+        import_label.set_align(Align::Left | Align::Inside);
         
-        let _db_path = Output::new(padding, y, 350, field_height, None);
-        let _browse_db_btn = Button::new(padding + 360, y, 80, field_height, "Browse...");
-        y += field_height + spacing;
+        let mut import_flex = Flex::new(0, 30, 640, 40, None);
+        import_flex.set_type(FlexType::Row);
+        import_flex.set_spacing(10);
         
-        // 数据库操作
-        let _backup_btn = Button::new(padding, y, 120, field_height, "Backup DB");
-        let _restore_btn = Button::new(padding + 130, y, 120, field_height, "Restore DB");
-        let _rebuild_btn = Button::new(padding + 260, y, 120, field_height, "Rebuild Index");
-        y += field_height + spacing;
+        let mut import_path_input = Input::new(0, 0, 0, 30, None);
+        import_path_input.set_color(Color::White);
+        import_flex.fixed(&import_path_input, 500);
         
-        // 数据库统计
-        let _stats_label = Frame::new(padding, y, 540, label_height, "Database Statistics:");
-        y += label_height + 10;
-        let _files_count = Frame::new(padding + 20, y, 250, label_height, "Total Files: 0");
-        let _size_info = Frame::new(padding + 280, y, 250, label_height, "Database Size: 0 MB");
+        let mut browse_import_btn = Button::new(0, 0, 80, 30, "Browse...");
+        browse_import_btn.set_color(Color::from_rgb(108, 117, 125));
+        browse_import_btn.set_label_color(Color::White);
+        import_flex.fixed(&browse_import_btn, 80);
+        
+        import_flex.end();
+        import_group.end();
+        flex.fixed(&import_group, 80);
+        
+        // 导入选项组
+        let mut options_group = Group::new(0, 0, 640, 100, None);
+        let mut options_label = Frame::new(0, 0, 200, 25, "导入选项:");
+        options_label.set_align(Align::Left | Align::Inside);
+        
+        let mut auto_extract_checkbox = CheckButton::new(0, 35, 300, 25, "自动提取文件元数据");
+        auto_extract_checkbox.set_checked(true);
+        
+        let mut auto_move_checkbox = CheckButton::new(0, 65, 300, 25, "导入后移动文件到存储目录");
+        auto_move_checkbox.set_checked(false);
+        
+        options_group.end();
+        flex.fixed(&options_group, 100);
+        
+        // 导入说明
+        let mut info_frame = Frame::new(0, 0, 640, 100,
+            "文件导入设置:\n\n• 支持 PDF、EPUB、TXT、DOC 等文档格式\n• 自动提取可以获取文件标题、作者等信息\n• 移动文件可以统一管理文档存储");
+        info_frame.set_align(Align::Left | Align::Top | Align::Inside);
+        info_frame.set_label_color(Color::from_rgb(108, 117, 125));
+        flex.fixed(&info_frame, 100);
+        
+        flex.end();
+        group.add(&flex);
+        
+        (import_path_input, browse_import_btn, auto_extract_checkbox, auto_move_checkbox)
     }
     
-    fn create_import_tab(group: &mut Group) {
-        let padding = 20;
-        let mut y = 60;
-        let label_height = 20;
-        let field_height = 30;
-        let spacing = 15;
+    fn create_search_tab(group: &mut Group) -> (CheckButton, IntInput) {
+        let mut flex = Flex::new(20, 50, 640, 400, None);
+        flex.set_type(FlexType::Column);
+        flex.set_spacing(20);
         
-        // 默认导入路径
-        let _import_label = Frame::new(padding, y, 150, label_height, "Default Import Path:");
-        y += label_height + 5;
+        // 搜索功能组
+        let mut search_group = Group::new(0, 0, 640, 80, None);
+        let mut search_label = Frame::new(0, 0, 200, 25, "搜索功能:");
+        search_label.set_align(Align::Left | Align::Inside);
         
-        let _import_path = Input::new(padding, y, 350, field_height, None);
-        let _browse_import_btn = Button::new(padding + 360, y, 80, field_height, "Browse...");
-        y += field_height + spacing;
+        let mut enable_fts_checkbox = CheckButton::new(0, 35, 300, 25, "启用全文搜索 (FTS)");
+        enable_fts_checkbox.set_checked(true);
         
-        // 导入选项
-        let _auto_extract = fltk::button::CheckButton::new(padding, y, 250, field_height, "Auto extract metadata");
-        y += field_height + 10;
-        let _auto_move = fltk::button::CheckButton::new(padding, y, 250, field_height, "Auto move imported files");
-        y += field_height + 10;
-        let _auto_categorize = fltk::button::CheckButton::new(padding, y, 250, field_height, "Auto categorize by file type");
-    }
-    
-    fn create_ui_tab(group: &mut Group) {
-        let padding = 20;
-        let mut y = 60;
-        let label_height = 20;
-        let field_height = 30;
-        let spacing = 15;
+        search_group.end();
+        flex.fixed(&search_group, 80);
         
-        // 主题选择
-        let _theme_label = Frame::new(padding, y, 150, label_height, "Theme:");
-        y += label_height + 5;
+        // 搜索限制组
+        let mut limit_group = Group::new(0, 0, 640, 80, None);
+        let mut limit_label = Frame::new(0, 0, 200, 25, "搜索结果限制:");
+        limit_label.set_align(Align::Left | Align::Inside);
         
-        let mut _theme_choice = Choice::new(padding, y, 200, field_height, None);
-        y += field_height + spacing;
+        let mut limit_flex = Flex::new(0, 30, 640, 40, None);
+        limit_flex.set_type(FlexType::Row);
+        limit_flex.set_spacing(10);
         
-        // 字体大小
-        let _font_label = Frame::new(padding, y, 150, label_height, "Font Size:");
-        y += label_height + 5;
+        let mut max_results_input = IntInput::new(0, 0, 100, 30, None);
+        max_results_input.set_value("1000");
+        max_results_input.set_color(Color::White);
+        limit_flex.fixed(&max_results_input, 100);
         
-        let _font_size = IntInput::new(padding, y, 100, field_height, None);
-        y += field_height + spacing;
+        let mut results_label = Frame::new(0, 0, 150, 30, "最大结果数");
+        results_label.set_align(Align::Left | Align::Inside);
+        limit_flex.fixed(&results_label, 150);
         
-        // 语言选择
-        let _language_label = Frame::new(padding, y, 150, label_height, "Language:");
-        y += label_height + 5;
+        // 填充空间
+        let mut spacer = Frame::new(0, 0, 0, 0, None);
+        limit_flex.fixed(&spacer, 390);
         
-        let mut _language_choice = Choice::new(padding, y, 200, field_height, None);
+        limit_flex.end();
+        limit_group.end();
+        flex.fixed(&limit_group, 80);
+        
+        // 搜索说明
+        let mut info_frame = Frame::new(0, 0, 640, 120,
+            "搜索设置:\n\n• 全文搜索可以搜索文档内容，而不仅是文件名\n• 搜索结果限制可以提高性能\n• 支持关键词、标签、作者等多种搜索方式\n\n注意: 禁用 FTS 将只能按文件名和元数据搜索");
+        info_frame.set_align(Align::Left | Align::Top | Align::Inside);
+        info_frame.set_label_color(Color::from_rgb(108, 117, 125));
+        flex.fixed(&info_frame, 120);
+        
+        flex.end();
+        group.add(&flex);
+        
+        (enable_fts_checkbox, max_results_input)
     }
     
     pub fn show(&mut self) {
@@ -328,196 +393,290 @@ impl SettingsDialog {
     pub fn load_config(&mut self, config: AppConfig, config_path: Option<PathBuf>) {
         self.current_config = Some(config.clone());
         self.config_path = config_path.clone();
+        self.modified = false;
         
         // 更新界面显示
         if let Some(path) = &config_path {
             self.config_path_output.set_value(&path.to_string_lossy());
+        } else {
+            self.config_path_output.set_value("No configuration file loaded");
         }
         
-        // 设置日志级别
-        self.update_log_level_from_config(&config);
+        // 设置数据库路径
+        self.db_path_output.set_value(&config.database.path.to_string_lossy());
         
-        // 更新其他配置项
-        self.populate_ui_settings(&config);
+        // 设置导入路径
+        self.import_path_input.set_value(&config.import.paths.storage_dir.to_string_lossy());
+        
+        // 设置导入选项
+        self.auto_extract_checkbox.set_checked(config.import.metadata.prefer_json);
+        self.auto_move_checkbox.set_checked(false); // 配置中暂时没有这个选项
+        
+        // 设置搜索选项
+        self.enable_fts_checkbox.set_checked(config.search.enable_fts);
+        self.max_results_input.set_value(&config.search.default_limit.to_string());
     }
     
-    fn update_log_level_from_config(&mut self, config: &AppConfig) {
-        // TODO: 从配置中读取日志级别并设置到选择框
-        self.log_level_choice.clear();
-        self.log_level_choice.add_choice("ERROR");
-        self.log_level_choice.add_choice("WARN");
-        self.log_level_choice.add_choice("INFO");
-        self.log_level_choice.add_choice("DEBUG");
-        self.log_level_choice.add_choice("TRACE");
-        self.log_level_choice.set_value(2); // 默认 INFO
-    }
-    
-    fn populate_ui_settings(&mut self, config: &AppConfig) {
-        // 主题设置
-        self.theme_choice.clear();
-        self.theme_choice.add_choice("Default");
-        self.theme_choice.add_choice("Dark");
-        self.theme_choice.add_choice("Light");
-        self.theme_choice.set_value(0);
-        
-        // 语言设置
-        self.language_choice.clear();
-        self.language_choice.add_choice("English");
-        self.language_choice.add_choice("中文");
-        self.language_choice.set_value(0);
-        
-        // 字体大小
-        self.font_size_input.set_value("12");
-    }
-    
-    pub fn set_callbacks(&mut self) {
-        // 编辑配置文件按钮
-        let config_path = self.config_path.clone();
-        self.edit_config_btn.set_callback(move |_| {
-            if let Some(path) = &config_path {
-                if let Err(e) = Self::edit_config_file(path) {
-                    eprintln!("Failed to open config file: {}", e);
+    fn setup_callbacks(&mut self) {
+        // 配置文件浏览按钮
+        {
+            let sender = self.event_sender.clone();
+            let mut output = self.config_path_output.clone();
+            self.browse_config_btn.set_callback(move |_| {
+                if let Some(path) = Self::browse_config_file() {
+                    output.set_value(&path.to_string_lossy());
+                    // TODO: 加载选中的配置文件
+                    println!("Selected config file: {}", path.display());
                 }
-            }
-        });
+            });
+        }
         
-        // 新建配置文件按钮
-        let sender = self.event_sender.clone();
-        self.new_config_btn.set_callback(move |_| {
-            if let Err(e) = Self::create_new_config() {
-                eprintln!("Failed to create new config: {}", e);
-            } else {
+        // 编辑配置文件按钮
+        {
+            let path_output = self.config_path_output.clone();
+            self.edit_config_btn.set_callback(move |_| {
+                let path_str = path_output.value();
+                if !path_str.is_empty() && path_str != "No configuration file loaded" {
+                    let path = PathBuf::from(path_str);
+                    if let Err(e) = Self::edit_config_file(&path) {
+                        eprintln!("Failed to open config file: {}", e);
+                    }
+                }
+            });
+        }
+        
+        // 重新加载配置按钮
+        {
+            let sender = self.event_sender.clone();
+            self.reload_config_btn.set_callback(move |_| {
                 let _ = sender.send(AppEvent::RefreshView);
-            }
-        });
+            });
+        }
         
-        // 浏览配置文件按钮
-        let sender = self.event_sender.clone();
-        self.browse_config_btn.set_callback(move |_| {
-            if let Some(path) = Self::browse_config_file() {
-                // TODO: 加载选中的配置文件
-                println!("Selected config file: {}", path.display());
-            }
-        });
+        // 数据库浏览按钮
+        {
+            let mut output = self.db_path_output.clone();
+            self.browse_db_btn.set_callback(move |_| {
+                if let Some(path) = Self::browse_database_file() {
+                    output.set_value(&path.to_string_lossy());
+                }
+            });
+        }
         
-        // 保存设置按钮
-        let sender = self.event_sender.clone();
-        self.save_btn.set_callback(move |_| {
-            let _ = sender.send(AppEvent::RefreshView);
-        });
+        // 数据库备份按钮
+        {
+            let output = self.db_path_output.clone();
+            self.backup_db_btn.set_callback(move |_| {
+                let db_path = output.value();
+                if !db_path.is_empty() {
+                    Self::backup_database(&PathBuf::from(db_path));
+                }
+            });
+        }
+        
+        // 重建索引按钮
+        {
+            let sender = self.event_sender.clone();
+            self.rebuild_index_btn.set_callback(move |_| {
+                // TODO: 实现重建索引功能
+                println!("Rebuilding search index...");
+            });
+        }
+        
+        // 导入目录浏览按钮
+        {
+            let mut input = self.import_path_input.clone();
+            self.browse_import_btn.set_callback(move |_| {
+                if let Some(path) = Self::browse_directory() {
+                    input.set_value(&path.to_string_lossy());
+                }
+            });
+        }
+        
+        // 保存按钮
+        {
+            let mut dialog = self.clone_for_callback();
+            self.save_btn.set_callback(move |_| {
+                if let Err(e) = dialog.save_settings() {
+                    eprintln!("Failed to save settings: {}", e);
+                    fltk::dialog::alert_default(&format!("保存设置失败: {}", e));
+                } else {
+                    dialog.window.hide();
+                }
+            });
+        }
+        
+        // 重置按钮
+        {
+            let mut dialog = self.clone_for_callback();
+            self.reset_btn.set_callback(move |_| {
+                if fltk::dialog::choice2_default("重置所有设置到默认值?", "取消", "重置", "") == Some(1) {
+                    dialog.reset_to_defaults();
+                }
+            });
+        }
         
         // 取消按钮
-        let sender = self.event_sender.clone();
-        self.cancel_btn.set_callback(move |_| {
-            // 关闭对话框
-        });
-        
-        // 打开日志文件按钮
-        self.open_log_btn.set_callback(move |_| {
-            // TODO: 打开日志文件
-        });
-        
-        // 清除日志按钮
-        self.clear_log_btn.set_callback(move |_| {
-            if Self::confirm_clear_log() {
-                if let Err(e) = Self::clear_log_file() {
-                    eprintln!("Failed to clear log: {}", e);
-                }
+        {
+            let mut window = self.window.clone();
+            self.cancel_btn.set_callback(move |_| {
+                window.hide();
+            });
+        }
+    }
+    
+    fn clone_for_callback(&self) -> Self {
+        // 创建一个用于回调的简化副本
+        Self {
+            window: self.window.clone(),
+            config_path_output: self.config_path_output.clone(),
+            browse_config_btn: self.browse_config_btn.clone(),
+            edit_config_btn: self.edit_config_btn.clone(),
+            reload_config_btn: self.reload_config_btn.clone(),
+            db_path_output: self.db_path_output.clone(),
+            browse_db_btn: self.browse_db_btn.clone(),
+            backup_db_btn: self.backup_db_btn.clone(),
+            rebuild_index_btn: self.rebuild_index_btn.clone(),
+            import_path_input: self.import_path_input.clone(),
+            browse_import_btn: self.browse_import_btn.clone(),
+            auto_extract_checkbox: self.auto_extract_checkbox.clone(),
+            auto_move_checkbox: self.auto_move_checkbox.clone(),
+            enable_fts_checkbox: self.enable_fts_checkbox.clone(),
+            max_results_input: self.max_results_input.clone(),
+            save_btn: self.save_btn.clone(),
+            cancel_btn: self.cancel_btn.clone(),
+            reset_btn: self.reset_btn.clone(),
+            current_config: self.current_config.clone(),
+            config_path: self.config_path.clone(),
+            modified: self.modified,
+            event_sender: self.event_sender.clone(),
+        }
+    }
+    
+    fn save_settings(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(ref mut config) = self.current_config {
+            // 更新数据库路径
+            let db_path = self.db_path_output.value();
+            if !db_path.is_empty() {
+                config.database.path = PathBuf::from(db_path);
             }
-        });
-    }
-    
-    fn edit_config_file(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
-        open_file(path)
-    }
-    
-    fn create_new_config() -> Result<(), Box<dyn std::error::Error>> {
-        let mut dialog = NativeFileChooser::new(fltk::dialog::NativeFileChooserType::BrowseSaveFile);
-        dialog.set_title("Create New Configuration File");
-        dialog.set_filter("TOML Files\t*.toml");
-        dialog.show();
-        
-        let path = dialog.filename();
-        if !path.to_string_lossy().is_empty() {
-            // TODO: 创建默认配置文件
-            std::fs::write(&path, Self::default_config_content())?;
-            open_file(&path)?;
+            
+            // 更新导入路径
+            let import_path = self.import_path_input.value();
+            if !import_path.is_empty() {
+                config.import.paths.storage_dir = PathBuf::from(import_path);
+            }
+            
+            // 更新导入选项
+            config.import.metadata.prefer_json = self.auto_extract_checkbox.is_checked();
+            
+            // 保存到文件
+            if let Some(config_path) = &self.config_path {
+                let config_content = toml::to_string_pretty(config)?;
+                fs::write(config_path, config_content)?;
+                println!("Settings saved to: {}", config_path.display());
+            }
         }
         
         Ok(())
+    }
+    
+    fn reset_to_defaults(&mut self) {
+        // 重置到默认值
+        self.db_path_output.set_value("tagbox.db");
+        self.import_path_input.set_value("./documents");
+        self.auto_extract_checkbox.set_checked(true);
+        self.auto_move_checkbox.set_checked(false);
+        self.enable_fts_checkbox.set_checked(true);
+        self.max_results_input.set_value("1000");
+        self.modified = true;
     }
     
     fn browse_config_file() -> Option<PathBuf> {
-        let mut dialog = NativeFileChooser::new(fltk::dialog::NativeFileChooserType::BrowseFile);
-        dialog.set_title("Select Configuration File");
+        let mut dialog = NativeFileChooser::new(FileDialogType::BrowseFile);
+        dialog.set_title("选择配置文件");
         dialog.set_filter("TOML Files\t*.toml");
         dialog.show();
         
-        let path = dialog.filename();
-        if !path.to_string_lossy().is_empty() {
-            Some(path)
-        } else {
+        let filename = dialog.filename();
+        if filename.to_string_lossy().is_empty() {
             None
+        } else {
+            Some(filename)
         }
     }
     
-    fn default_config_content() -> &'static str {
-        r#"# TagBox Configuration File
-# This file configures the TagBox file management system
-
-[database]
-path = "tagbox.db"
-backup_on_startup = false
-
-[import]
-default_category = "Uncategorized"
-auto_extract_metadata = true
-auto_move_files = false
-
-[search]
-max_results = 100
-enable_full_text_search = true
-
-[logging]
-level = "INFO"
-file = "tagbox.log"
-max_size_mb = 10
-max_files = 5
-
-[ui]
-theme = "default"
-font_size = 12
-language = "en"
-"#
+    fn browse_database_file() -> Option<PathBuf> {
+        let mut dialog = NativeFileChooser::new(FileDialogType::BrowseSaveFile);
+        dialog.set_title("选择数据库文件");
+        dialog.set_filter("Database Files\t*.db\t*.sqlite");
+        dialog.show();
+        
+        let filename = dialog.filename();
+        if filename.to_string_lossy().is_empty() {
+            None
+        } else {
+            Some(filename)
+        }
     }
     
-    fn confirm_clear_log() -> bool {
-        let choice = fltk::dialog::choice2_default(
-            "Are you sure you want to clear the log file?",
-            "Yes",
-            "No",
-            ""
-        );
-        choice == Some(0)
+    fn browse_directory() -> Option<PathBuf> {
+        let mut dialog = NativeFileChooser::new(FileDialogType::BrowseDir);
+        dialog.set_title("选择目录");
+        dialog.show();
+        
+        let filename = dialog.filename();
+        if filename.to_string_lossy().is_empty() {
+            None
+        } else {
+            Some(filename)
+        }
     }
     
-    fn clear_log_file() -> Result<(), Box<dyn std::error::Error>> {
-        // TODO: 实现清除日志文件的逻辑
+    fn edit_config_file(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+        // 尝试用系统默认编辑器打开配置文件
+        #[cfg(target_os = "windows")]
+        {
+            std::process::Command::new("cmd")
+                .args(["/C", "start", "", path.to_str().unwrap_or("")])
+                .spawn()?;
+        }
+        
+        #[cfg(target_os = "macos")]
+        {
+            std::process::Command::new("open")
+                .arg(path)
+                .spawn()?;
+        }
+        
+        #[cfg(target_os = "linux")]
+        {
+            std::process::Command::new("xdg-open")
+                .arg(path)
+                .spawn()?;
+        }
+        
         Ok(())
     }
     
-    pub fn apply_settings(&self) -> Result<(), Box<dyn std::error::Error>> {
-        // TODO: 应用设置更改
-        Ok(())
-    }
-    
-    pub fn reset_to_defaults(&mut self) {
-        // TODO: 重置所有设置到默认值
-        self.log_level_choice.set_value(2); // INFO
-        self.theme_choice.set_value(0); // Default
-        self.language_choice.set_value(0); // English
-        self.font_size_input.set_value("12");
-        self.auto_extract_checkbox.set_value(true);
-        self.auto_move_checkbox.set_value(false);
+    fn backup_database(db_path: &Path) {
+        if !db_path.exists() {
+            fltk::dialog::alert_default("数据库文件不存在");
+            return;
+        }
+        
+        let backup_name = format!("{}.backup.{}", 
+            db_path.to_string_lossy(), 
+            chrono::Local::now().format("%Y%m%d_%H%M%S"));
+        let backup_path = db_path.parent().unwrap_or(Path::new(".")).join(backup_name);
+        
+        match fs::copy(db_path, &backup_path) {
+            Ok(_) => {
+                fltk::dialog::message_default(&format!("数据库备份成功:\n{}", backup_path.display()));
+            },
+            Err(e) => {
+                fltk::dialog::alert_default(&format!("备份失败: {}", e));
+            }
+        }
     }
 }

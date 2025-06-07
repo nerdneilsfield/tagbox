@@ -3468,6 +3468,7 @@ dependencies = [
 name = "tagbox-gui"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "clipboard",
  "dirs",
  "fltk",
@@ -3476,6 +3477,7 @@ dependencies = [
  "serde",
  "tagbox-core",
  "tokio",
+ "toml",
  "tracing",
  "tracing-subscriber",
  "uuid",

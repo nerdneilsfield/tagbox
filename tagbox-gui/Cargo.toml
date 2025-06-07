@@ -26,3 +26,5 @@ uuid = { version = "1.0", features = ["v4"] }
 # 系统操作
 dirs = "5.0"
 clipboard = "0.5"
+chrono = { version = "0.4", features = ["serde"] }
+toml = "0.8"
