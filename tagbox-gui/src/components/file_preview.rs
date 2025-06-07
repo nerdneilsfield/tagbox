@@ -79,30 +79,58 @@ impl FilePreview {
         title_output.set_value("No file selected");
         main_flex.fixed(&title_output, 35);
         
-        // 基本信息区域 (固定高度)
-        let mut info_flex = Flex::new(0, 0, 0, 120, None);
+        // 基本信息区域 (使用Label + Input的组合布局)
+        let mut info_flex = Flex::new(0, 0, 0, 160, None);
         info_flex.set_type(FlexType::Column);
-        info_flex.set_spacing(3);
+        info_flex.set_spacing(2);
         
-        let mut path_output = Output::new(0, 0, 0, 25, "Path:");
+        // Path 字段
+        let mut path_label = Frame::new(0, 0, 0, 16, "Path:");
+        path_label.set_label_size(11);
+        path_label.set_label_color(Color::from_rgb(108, 117, 125));
+        path_label.set_align(fltk::enums::Align::Left | fltk::enums::Align::Inside);
+        info_flex.fixed(&path_label, 16);
+        
+        let mut path_output = Output::new(0, 0, 0, 22, None);
         path_output.set_color(Color::from_rgb(250, 250, 250));
         path_output.set_text_size(10);
-        info_flex.fixed(&path_output, 25);
+        info_flex.fixed(&path_output, 22);
         
-        let mut authors_output = Output::new(0, 0, 0, 25, "Authors:");
+        // Authors 字段
+        let mut authors_label = Frame::new(0, 0, 0, 16, "Authors:");
+        authors_label.set_label_size(11);
+        authors_label.set_label_color(Color::from_rgb(108, 117, 125));
+        authors_label.set_align(fltk::enums::Align::Left | fltk::enums::Align::Inside);
+        info_flex.fixed(&authors_label, 16);
+        
+        let mut authors_output = Output::new(0, 0, 0, 22, None);
         authors_output.set_color(Color::from_rgb(250, 250, 250));
-        info_flex.fixed(&authors_output, 25);
+        info_flex.fixed(&authors_output, 22);
         
-        let mut year_output = Output::new(0, 0, 0, 25, "Year:");
+        // Year 字段
+        let mut year_label = Frame::new(0, 0, 0, 16, "Year:");
+        year_label.set_label_size(11);
+        year_label.set_label_color(Color::from_rgb(108, 117, 125));
+        year_label.set_align(fltk::enums::Align::Left | fltk::enums::Align::Inside);
+        info_flex.fixed(&year_label, 16);
+        
+        let mut year_output = Output::new(0, 0, 0, 22, None);
         year_output.set_color(Color::from_rgb(250, 250, 250));
-        info_flex.fixed(&year_output, 25);
+        info_flex.fixed(&year_output, 22);
         
-        let mut publisher_output = Output::new(0, 0, 0, 25, "Publisher:");
+        // Publisher 字段
+        let mut publisher_label = Frame::new(0, 0, 0, 16, "Publisher:");
+        publisher_label.set_label_size(11);
+        publisher_label.set_label_color(Color::from_rgb(108, 117, 125));
+        publisher_label.set_align(fltk::enums::Align::Left | fltk::enums::Align::Inside);
+        info_flex.fixed(&publisher_label, 16);
+        
+        let mut publisher_output = Output::new(0, 0, 0, 22, None);
         publisher_output.set_color(Color::from_rgb(250, 250, 250));
-        info_flex.fixed(&publisher_output, 25);
+        info_flex.fixed(&publisher_output, 22);
         
         info_flex.end();
-        main_flex.fixed(&info_flex, 120);
+        main_flex.fixed(&info_flex, 160);
         
         // 标签区域 (固定高度)
         let mut tags_flex = Flex::new(0, 0, 0, 70, None);

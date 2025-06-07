@@ -174,6 +174,26 @@ impl StatusBar {
         self.status_message.redraw();
     }
     
+    // 设置消息（带错误标志）
+    pub fn set_message(&mut self, message: &str, is_error: bool) {
+        self.status_message.set_value(message);
+        
+        // 根据是否为错误设置不同颜色
+        if is_error {
+            self.status_message.set_text_color(Color::from_rgb(220, 53, 69)); // 红色
+        } else {
+            self.status_message.set_text_color(Color::from_rgb(25, 135, 84)); // 绿色
+        }
+        
+        self.status_message.redraw();
+        
+        // 3秒后恢复默认颜色
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(3));
+            // 注意：实际应用中需要通过事件系统来重置颜色
+        });
+    }
+    
     // 设置临时状态消息（会自动清除）
     pub fn set_temp_status(&mut self, message: &str, duration_ms: u64) {
         self.set_status(message);

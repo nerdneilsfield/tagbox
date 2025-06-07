@@ -166,7 +166,7 @@ impl FileList {
                     let key = fltk::app::event_key();
                     match key {
                         fltk::enums::Key::Delete => {
-                            let _ = sender.send(AppEvent::DeleteFile);
+                            let _ = sender.send(AppEvent::DeleteFile("current".to_string()));
                             true
                         },
                         fltk::enums::Key::Enter => {

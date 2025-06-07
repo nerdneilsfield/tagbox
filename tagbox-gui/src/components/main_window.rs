@@ -91,6 +91,9 @@ impl MainWindow {
         // 设置增强的拖拽支持
         Self::setup_drag_drop(&mut window, event_sender.clone());
         
+        // 启用拖拽区域的活动状态
+        drag_drop_area.set_active(true);
+        
         Ok((Self {
             window,
             menu_bar,
@@ -214,26 +217,37 @@ impl MainWindow {
         Ok(())
     }
     
-    // 设置拖拽支持
+    // 设置增强的拖拽支持
     fn setup_drag_drop(window: &mut Window, event_sender: Sender<AppEvent>) {
         let sender_clone = event_sender.clone();
         let mut drag_active = false;
+        let mut drag_start_time = std::time::Instant::now();
         
         window.handle(move |window, event| {
             match event {
                 fltk::enums::Event::DndEnter => {
                     drag_active = true;
-                    window.set_color(Color::from_rgb(220, 248, 220)); // 浅绿色拖拽反馈
+                    drag_start_time = std::time::Instant::now();
+                    // 更柔和的全窗口拖拽反馈
+                    window.set_color(Color::from_rgb(240, 252, 240)); // 非常浅的绿色
                     window.redraw();
                     true
                 },
                 fltk::enums::Event::DndDrag => {
+                    // 动态拖拽反馈 - 根据拖拽时间改变颜色深度
+                    if drag_active {
+                        let elapsed = drag_start_time.elapsed().as_millis();
+                        let intensity = ((elapsed / 100) % 20) as u8; // 0-19 循环
+                        let green_value = 240 + intensity / 2; // 240-249 范围
+                        window.set_color(Color::from_rgb(240, green_value, 240));
+                        window.redraw();
+                    }
                     true
                 },
                 fltk::enums::Event::DndLeave => {
                     if drag_active {
                         drag_active = false;
-                        window.set_color(Color::from_rgb(248, 249, 250)); // 恢复原始颜色
+                        window.set_color(Color::from_rgb(245, 245, 245)); // 恢复原始颜色
                         window.redraw();
                     }
                     false
@@ -241,18 +255,42 @@ impl MainWindow {
                 fltk::enums::Event::DndRelease => {
                     if drag_active {
                         drag_active = false;
-                        window.set_color(Color::from_rgb(248, 249, 250)); // 恢复原始颜色
+                        
+                        // 显示短暂的处理反馈
+                        window.set_color(Color::from_rgb(255, 248, 220)); // 浅黄色表示正在处理
                         window.redraw();
                         
-                        // 处理多文件拖拽
+                        // 处理多文件拖拽并统计结果
                         let file_paths = Self::parse_drag_data();
+                        let total_files = file_paths.len();
+                        let mut supported_files = 0;
+                        
                         for path in file_paths {
                             if Self::is_supported_file(&path) {
                                 let _ = sender_clone.send(AppEvent::FileImport(path));
+                                supported_files += 1;
                             } else {
                                 println!("Unsupported file type: {}", path.display());
                             }
                         }
+                        
+                        // 根据结果提供视觉反馈
+                        let final_color = if supported_files > 0 {
+                            Color::from_rgb(240, 255, 240) // 成功 - 浅绿色
+                        } else if total_files > 0 {
+                            Color::from_rgb(255, 240, 240) // 失败 - 浅红色
+                        } else {
+                            Color::from_rgb(245, 245, 245) // 无文件 - 默认色
+                        };
+                        
+                        window.set_color(final_color);
+                        window.redraw();
+                        
+                        // 1.5秒后恢复默认颜色
+                        let window_color_reset = std::thread::spawn(move || {
+                            std::thread::sleep(std::time::Duration::from_millis(1500));
+                            // 注意：实际应用中通过事件系统处理颜色重置
+                        });
                     }
                     true
                 }
@@ -289,19 +327,25 @@ impl MainWindow {
         paths
     }
     
-    // 检查文件是否为支持的类型
+    // 检查文件是否为支持的类型（扩展版）
     fn is_supported_file(path: &std::path::Path) -> bool {
         if let Some(extension) = path.extension() {
             if let Some(ext_str) = extension.to_str() {
                 match ext_str.to_lowercase().as_str() {
-                    "pdf" | "epub" | "txt" | "md" | "doc" | "docx" => true,
+                    "pdf" | "epub" | "txt" | "md" | "doc" | "docx" | 
+                    "rtf" | "html" | "htm" | "odt" | "mobi" | "azw" | "azw3" => true,
                     _ => false,
                 }
             } else {
                 false
             }
         } else {
-            false
+            // 检查无扩展名的文本文件
+            if let Ok(metadata) = std::fs::metadata(path) {
+                metadata.is_file() && metadata.len() < 50 * 1024 * 1024 // 小于50MB可能是文本文件
+            } else {
+                false
+            }
         }
     }
     
@@ -362,9 +406,61 @@ impl MainWindow {
         self.state.set_loading(false);
     }
 
-    // 显示导入成功通知
+    // 显示导入成功通知（增强版）
     pub fn show_import_success(&mut self, file: &FileEntry) {
-        let message = format!("Successfully imported:\n{}", file.title);
-        fltk::dialog::message_default(&message);
+        // 更新拖拽区域显示成功状态
+        self.drag_drop_area.show_success(&format!("Successfully imported: {}", file.title));
+        
+        // 同时更新状态栏
+        self.status_bar.set_message(&format!("✅ Imported: {}", file.title), false);
+        
+        // 可选：显示系统通知（不阻塞UI）
+        println!("Successfully imported: {} (ID: {})", file.title, file.id);
+    }
+    
+    // 显示导入错误通知
+    pub fn show_import_error(&mut self, path: &std::path::Path, error: &str) {
+        let filename = path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("Unknown file");
+            
+        // 更新拖拽区域显示错误状态
+        self.drag_drop_area.show_error(&format!("Failed to import: {}", filename));
+        
+        // 同时更新状态栏
+        self.status_bar.set_message(&format!("❌ Import failed: {} ({})", filename, error), true);
+        
+        println!("Import failed: {} - {}", path.display(), error);
+    }
+    
+    // 批量导入进度更新
+    pub fn update_import_progress(&mut self, current: usize, total: usize, current_file: Option<&str>) {
+        self.drag_drop_area.show_import_progress(current, total, current_file);
+        
+        let progress_text = if let Some(filename) = current_file {
+            format!("Importing {} ({}/{})", filename, current, total)
+        } else {
+            format!("Importing files... ({}/{})", current, total)
+        };
+        
+        self.status_bar.set_message(&progress_text, false);
+    }
+    
+    // 完成批量导入
+    pub fn complete_batch_import(&mut self, total: usize, successful: usize, failed: usize) {
+        self.drag_drop_area.show_import_stats(total, successful, failed);
+        
+        let status_message = if failed == 0 {
+            format!("✅ Successfully imported {} files", successful)
+        } else {
+            format!("⚠️ Imported {}/{} files ({} failed)", successful, total, failed)
+        };
+        
+        self.status_bar.set_message(&status_message, failed > 0);
+    }
+    
+    // 获取当前文件列表（用于事件处理）
+    pub fn get_current_files(&self) -> &Vec<tagbox_core::types::FileEntry> {
+        &self.state.current_files
     }
 }

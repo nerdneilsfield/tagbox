@@ -428,7 +428,7 @@ impl EditDialog {
             );
             
             if choice == Some(0) {
-                let _ = sender_clone.send(AppEvent::DeleteFile);
+                let _ = sender_clone.send(AppEvent::DeleteFile("current".to_string()));
             }
         });
         

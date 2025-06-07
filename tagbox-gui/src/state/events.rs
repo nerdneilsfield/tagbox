@@ -16,8 +16,14 @@ pub enum AppEvent {
     FileEdit(String),
     FileImport(PathBuf),
     SaveFile,
-    DeleteFile,
+    DeleteFile(String), // 指定文件ID或索引
     CancelEdit,
+    
+    // 右键菜单相关事件
+    OpenFile(String), // 打开文件
+    EditFile(String), // 编辑文件元数据
+    CopyFilePath(String), // 复制文件路径
+    ShowInFolder(String), // 在文件夹中显示
     
     // 分类树操作
     CategoryExpand(String),

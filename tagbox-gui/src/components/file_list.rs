@@ -1,8 +1,10 @@
 use fltk::{
     prelude::*,
     browser::Browser,
-    enums::Color,
+    enums::{Color, Event},
     group::Group,
+    menu::{MenuButton, MenuFlag},
+    app::MouseButton,
 };
 use std::sync::mpsc::Sender;
 use tagbox_core::types::{FileEntry, SearchResult};
@@ -47,12 +49,33 @@ impl FileList {
     
     fn setup_callbacks(&mut self) {
         let sender = self.event_sender.clone();
+        let sender_menu = self.event_sender.clone();
         
+        // 正常选择回调
         self.browser.set_callback(move |browser| {
             let selected = browser.value();
             if selected > 0 {
                 // 为了简化起见，我们发送选中的索引，然后在主窗口中处理
                 let _ = sender.send(AppEvent::FileSelected(format!("index:{}", selected - 1)));
+            }
+        });
+        
+        // 右键菜单处理
+        self.browser.handle(move |browser, event| {
+            match event {
+                Event::Push => {
+                    if fltk::app::event_mouse_button() == MouseButton::Right {
+                        let selected = browser.value();
+                        if selected > 0 {
+                            // 显示右键菜单
+                            Self::show_context_menu((selected - 1) as usize, &sender_menu);
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                },
+                _ => false,
             }
         });
     }
@@ -276,5 +299,49 @@ impl FileList {
             self.browser.set_color(Color::White);
         }
         self.browser.redraw();
+    }
+    
+    // 显示右键上下文菜单
+    fn show_context_menu(file_index: usize, sender: &Sender<AppEvent>) {
+        let mut menu = MenuButton::default();
+        let sender_open = sender.clone();
+        let sender_edit = sender.clone();
+        let sender_copy = sender.clone();
+        let sender_folder = sender.clone();
+        let sender_delete = sender.clone();
+        
+        menu.add_choice("📄 Open File");
+        menu.add_choice("✏️ Edit Metadata");
+        menu.add_choice("📋 Copy Path");
+        menu.add_choice("📁 Show in Folder");
+        menu.add_choice("➖ Remove");
+        
+        // 菜单选项处理
+        menu.set_callback(move |m| {
+            let choice = m.value();
+            match choice {
+                0 => { // Open File
+                    let _ = sender_open.send(AppEvent::OpenFile(format!("index:{}", file_index)));
+                },
+                1 => { // Edit Metadata
+                    let _ = sender_edit.send(AppEvent::EditFile(format!("index:{}", file_index)));
+                },
+                2 => { // Copy Path
+                    let _ = sender_copy.send(AppEvent::CopyFilePath(format!("index:{}", file_index)));
+                },
+                3 => { // Show in Folder
+                    let _ = sender_folder.send(AppEvent::ShowInFolder(format!("index:{}", file_index)));
+                },
+                4 => { // Remove
+                    if fltk::dialog::choice2_default("Remove this file from TagBox?", "Cancel", "Remove", "") == Some(1) {
+                        let _ = sender_delete.send(AppEvent::DeleteFile(format!("index:{}", file_index)));
+                    }
+                },
+                _ => {}
+            }
+        });
+        
+        // 显示菜单
+        menu.popup();
     }
 }

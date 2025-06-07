@@ -99,7 +99,7 @@ impl FileOperationsMenu {
                     },
                     8 => { // Move to Trash
                         if Self::confirm_delete("move to trash") {
-                            let _ = sender.send(AppEvent::DeleteFile);
+                            let _ = sender.send(AppEvent::DeleteFile("current".to_string()));
                         }
                     },
                     9 => { // Permanently Delete
@@ -190,7 +190,7 @@ impl KeyboardShortcuts {
                 true
             },
             fltk::enums::Key::Delete => { // Delete
-                let _ = self.event_sender.send(AppEvent::DeleteFile);
+                let _ = self.event_sender.send(AppEvent::DeleteFile("current".to_string()));
                 true
             },
             fltk::enums::Key::F5 => { // F5 - 刷新

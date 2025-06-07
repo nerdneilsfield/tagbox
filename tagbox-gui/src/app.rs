@@ -134,10 +134,65 @@ impl App {
                 self.main_window.set_loading(true);
                 self.async_bridge.spawn_advanced_search(options, self.config.clone());
             }
+            // 右键菜单事件处理
+            AppEvent::OpenFile(file_ref) => {
+                tracing::info!("Opening file: {}", file_ref);
+                if let Some(file) = self.get_file_by_ref(&file_ref) {
+                    if let Err(e) = crate::utils::open_file(&file.path) {
+                        let _ = self.main_window.event_sender.send(AppEvent::Error(format!("Failed to open file: {}", e)));
+                    }
+                }
+            }
+            AppEvent::EditFile(file_ref) => {
+                tracing::info!("Editing file metadata: {}", file_ref);
+                if let Some(file) = self.get_file_by_ref(&file_ref) {
+                    // TODO: 打开文件编辑对话框
+                    println!("Opening edit dialog for: {}", file.title);
+                }
+            }
+            AppEvent::CopyFilePath(file_ref) => {
+                tracing::info!("Copying file path: {}", file_ref);
+                if let Some(file) = self.get_file_by_ref(&file_ref) {
+                    if let Err(e) = crate::utils::copy_to_clipboard(&file.path.to_string_lossy()) {
+                        let _ = self.main_window.event_sender.send(AppEvent::Error(format!("Failed to copy path: {}", e)));
+                    } else {
+                        println!("Path copied to clipboard: {}", file.path.display());
+                    }
+                }
+            }
+            AppEvent::ShowInFolder(file_ref) => {
+                tracing::info!("Showing file in folder: {}", file_ref);
+                if let Some(file) = self.get_file_by_ref(&file_ref) {
+                    if let Err(e) = crate::utils::open_folder(&file.path) {
+                        let _ = self.main_window.event_sender.send(AppEvent::Error(format!("Failed to open folder: {}", e)));
+                    }
+                }
+            }
+            AppEvent::DeleteFile(file_ref) => {
+                tracing::info!("Deleting file: {}", file_ref);
+                if let Some(file) = self.get_file_by_ref(&file_ref) {
+                    // TODO: 实现文件删除功能
+                    println!("Deleting file: {} (ID: {})", file.title, file.id);
+                }
+            }
             _ => {
                 tracing::debug!("Unhandled event: {:?}", event);
             }
         }
         Ok(())
+    }
+    
+    // 辅助方法：根据文件引用获取文件
+    fn get_file_by_ref(&self, file_ref: &str) -> Option<&tagbox_core::types::FileEntry> {
+        if file_ref.starts_with("index:") {
+            if let Ok(index) = file_ref.strip_prefix("index:").unwrap().parse::<usize>() {
+                self.main_window.get_current_files().get(index)
+            } else {
+                None
+            }
+        } else {
+            // 按ID查找
+            self.main_window.get_current_files().iter().find(|f| f.id == file_ref)
+        }
     }
 }
