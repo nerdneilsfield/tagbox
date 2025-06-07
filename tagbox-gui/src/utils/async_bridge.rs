@@ -226,4 +226,99 @@ impl AsyncBridge {
             let _ = sender.send(AppEvent::LoadingEnd);
         });
     }
+    
+    /// 打开编辑对话框
+    pub fn spawn_open_edit_dialog(&self, file_id: String, config: AppConfig) {
+        let sender = self.event_sender.clone();
+        self.runtime.spawn(async move {
+            info!("Opening edit dialog for file: {}", file_id);
+            
+            // 验证文件是否存在
+            match tagbox_core::get_file(&file_id, &config).await {
+                Ok(file) => {
+                    info!("File found for editing: {} - {}", file.id, file.title);
+                    // 发送成功事件，主线程会处理实际的对话框显示
+                    let _ = sender.send(AppEvent::FileLoaded(file));
+                }
+                Err(e) => {
+                    error!("Failed to load file for editing: {}", e);
+                    let _ = sender.send(AppEvent::Error(format!("Failed to load file for editing: {}", e)));
+                }
+            }
+        });
+    }
+    
+    /// 保存文件编辑
+    pub fn spawn_save_file_edit(&self, file_id: String, metadata: tagbox_core::types::ImportMetadata, config: AppConfig) {
+        let sender = self.event_sender.clone();
+        self.runtime.spawn(async move {
+            info!("Saving file changes for: {}", file_id);
+            
+            // 构建更新请求
+            let update_request = tagbox_core::types::FileUpdateRequest {
+                title: Some(metadata.title),
+                authors: Some(metadata.authors),
+                year: metadata.year,
+                publisher: metadata.publisher,
+                source: metadata.source,
+                category1: Some(metadata.category1),
+                category2: metadata.category2,
+                category3: metadata.category3,
+                tags: Some(metadata.tags),
+                summary: metadata.summary,
+                full_text: metadata.full_text,
+                is_deleted: None,
+                file_metadata: metadata.file_metadata,
+                type_metadata: metadata.type_metadata,
+            };
+            
+            match tagbox_core::edit_file(&file_id, update_request, &config).await {
+                Ok(_) => {
+                    info!("File saved successfully: {}", file_id);
+                    let _ = sender.send(AppEvent::RefreshView);
+                }
+                Err(e) => {
+                    error!("Failed to save file: {}", e);
+                    let _ = sender.send(AppEvent::Error(format!("Failed to save file: {}", e)));
+                }
+            }
+        });
+    }
+    
+    /// 删除文件
+    pub fn spawn_delete_file(&self, file_id: String, config: AppConfig) {
+        let sender = self.event_sender.clone();
+        self.runtime.spawn(async move {
+            info!("Deleting file: {}", file_id);
+            
+            // 构建软删除请求
+            let delete_request = tagbox_core::types::FileUpdateRequest {
+                title: None,
+                authors: None,
+                year: None,
+                publisher: None,
+                source: None,
+                category1: None,
+                category2: None,
+                category3: None,
+                tags: None,
+                summary: None,
+                full_text: None,
+                is_deleted: Some(true),
+                file_metadata: None,
+                type_metadata: None,
+            };
+            
+            match tagbox_core::edit_file(&file_id, delete_request, &config).await {
+                Ok(_) => {
+                    info!("File deleted successfully: {}", file_id);
+                    let _ = sender.send(AppEvent::RefreshView);
+                }
+                Err(e) => {
+                    error!("Failed to delete file: {}", e);
+                    let _ = sender.send(AppEvent::Error(format!("Failed to delete file: {}", e)));
+                }
+            }
+        });
+    }
 }

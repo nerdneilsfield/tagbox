@@ -9,6 +9,7 @@ pub struct App {
     pub event_receiver: Receiver<AppEvent>,
     pub async_bridge: AsyncBridge,
     pub config: AppConfig,
+    pub editing_file_id: Option<String>, // 跟踪当前正在编辑的文件
 }
 
 impl App {
@@ -24,6 +25,7 @@ impl App {
             event_receiver,
             async_bridge,
             config,
+            editing_file_id: None,
         })
     }
     
@@ -148,6 +150,27 @@ impl App {
             }
             AppEvent::FileLoaded(file) => {
                 tracing::info!("File loaded: {}", file.title);
+                
+                // 检查是否是为了编辑而加载的文件
+                if let Some(editing_id) = &self.editing_file_id {
+                    if *editing_id == file.id {
+                        // 为编辑而加载的文件，在主线程中打开编辑对话框
+                        tracing::info!("Opening edit dialog for file: {} - {}", file.id, file.title);
+                        
+                        // 填充编辑对话框的表单
+                        self.main_window.edit_dialog.populate_form(&file);
+                        
+                        // 显示编辑对话框
+                        self.main_window.edit_dialog.show();
+                        
+                        // 更新状态栏
+                        self.main_window.status_bar.set_temp_status(&format!("✏️ Editing: {}", file.title), 2000);
+                        
+                        return Ok(());
+                    }
+                }
+                
+                // 普通的文件加载，显示详情
                 self.main_window.display_file_details(&file);
             }
             AppEvent::FileImported(file) => {
@@ -177,8 +200,18 @@ impl App {
             AppEvent::EditFile(file_ref) => {
                 tracing::info!("Editing file metadata: {}", file_ref);
                 if let Some(file) = self.get_file_by_ref(&file_ref) {
-                    // TODO: 打开文件编辑对话框
-                    println!("Opening edit dialog for: {}", file.title);
+                    let file_id = file.id.clone();
+                    let file_title = file.title.clone();
+                    
+                    // 在新的异步任务中打开编辑对话框
+                    let sender = self.main_window.event_sender.clone();
+                    self.async_bridge.runtime.spawn(async move {
+                        // 发送事件通知主窗口打开编辑对话框
+                        match sender.send(AppEvent::FileEdit(file_id)) {
+                            Ok(_) => println!("Opening edit dialog for: {}", file_title),
+                            Err(e) => eprintln!("Failed to send edit event: {}", e),
+                        }
+                    });
                 }
             }
             AppEvent::CopyFilePath(file_ref) => {
@@ -205,10 +238,71 @@ impl App {
             }
             AppEvent::DeleteFile(file_ref) => {
                 tracing::info!("Deleting file: {}", file_ref);
-                if let Some(file) = self.get_file_by_ref(&file_ref) {
-                    // TODO: 实现文件删除功能
-                    println!("Deleting file: {} (ID: {})", file.title, file.id);
+                
+                // 检查是否是从编辑对话框发起的删除
+                if file_ref == "editing" {
+                    if let Some(editing_id) = &self.editing_file_id {
+                        // 从编辑对话框删除
+                        self.async_bridge.spawn_delete_file(editing_id.clone(), self.config.clone());
+                        
+                        // 关闭编辑对话框
+                        self.main_window.close_edit_dialog();
+                        self.editing_file_id = None;
+                        
+                        // 更新状态栏
+                        self.main_window.status_bar.set_temp_status("🗑️ Deleting file...", 2000);
+                        return Ok(());
+                    }
                 }
+                
+                // 从其他地方发起的删除（如右键菜单）
+                if let Some(file) = self.get_file_by_ref(&file_ref) {
+                    self.async_bridge.spawn_delete_file(file.id.clone(), self.config.clone());
+                    self.main_window.status_bar.set_temp_status(&format!("🗑️ Deleting: {}", file.title), 2000);
+                }
+            }
+            AppEvent::FileEdit(file_id) => {
+                tracing::info!("Opening edit dialog for file: {}", file_id);
+                self.editing_file_id = Some(file_id.clone());
+                self.async_bridge.spawn_open_edit_dialog(file_id, self.config.clone());
+            }
+            AppEvent::SaveFile => {
+                tracing::info!("Saving file changes");
+                
+                if let Some(file_id) = &self.editing_file_id {
+                    // 从编辑对话框收集表单数据
+                    let metadata = self.main_window.edit_dialog.collect_form_data();
+                    
+                    // 验证表单
+                    match self.main_window.edit_dialog.validate_form() {
+                        Ok(_) => {
+                            self.async_bridge.spawn_save_file_edit(file_id.clone(), metadata, self.config.clone());
+                            
+                            // 关闭编辑对话框
+                            self.main_window.close_edit_dialog();
+                            self.editing_file_id = None;
+                            
+                            // 更新状态栏
+                            self.main_window.status_bar.set_temp_status("💾 Saving file changes...", 2000);
+                        }
+                        Err(e) => {
+                            // 显示验证错误
+                            self.main_window.status_bar.set_temp_status(&format!("❌ Validation error: {}", e), 3000);
+                        }
+                    }
+                } else {
+                    tracing::warn!("SaveFile event received but no file is being edited");
+                }
+            }
+            AppEvent::CancelEdit => {
+                tracing::info!("Cancelling file edit");
+                
+                // 关闭编辑对话框并清理状态
+                self.main_window.close_edit_dialog();
+                self.editing_file_id = None;
+                
+                // 更新状态栏
+                self.main_window.status_bar.set_temp_status("📄 Edit cancelled", 1500);
             }
             _ => {
                 tracing::debug!("Unhandled event: {:?}", event);

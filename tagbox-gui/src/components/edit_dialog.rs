@@ -346,9 +346,26 @@ impl EditDialog {
         if let Some(file_id) = &self.file_id {
             let metadata = self.collect_form_data();
             
+            // 构建文件更新请求
+            let update_request = tagbox_core::types::FileUpdateRequest {
+                title: Some(metadata.title),
+                authors: Some(metadata.authors),
+                year: metadata.year,
+                publisher: metadata.publisher,
+                source: metadata.source,
+                category1: Some(metadata.category1),
+                category2: metadata.category2,
+                category3: metadata.category3,
+                tags: Some(metadata.tags),
+                summary: metadata.summary,
+                full_text: None,
+                is_deleted: None,
+                file_metadata: metadata.file_metadata,
+                type_metadata: metadata.type_metadata,
+            };
+            
             // 调用 tagbox-core 的更新功能
-            // TODO: 调用 tagbox-core 的更新功能 - API 待实现
-            // tagbox_core::update_file_metadata(file_id, metadata, config).await?;
+            tagbox_core::edit_file(file_id, update_request, config).await?;
             
             Ok(())
         } else {
@@ -358,9 +375,26 @@ impl EditDialog {
     
     pub async fn delete_file(&self, config: &AppConfig) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(file_id) = &self.file_id {
-            // 调用 tagbox-core 的删除功能（软删除）
-            // TODO: 调用 tagbox-core 的删除功能（软删除） - API 待实现
-            // tagbox_core::soft_delete_file(file_id, config).await?;
+            // 构建软删除请求（设置 is_deleted = true）
+            let delete_request = tagbox_core::types::FileUpdateRequest {
+                title: None,
+                authors: None,
+                year: None,
+                publisher: None,
+                source: None,
+                category1: None,
+                category2: None,
+                category3: None,
+                tags: None,
+                summary: None,
+                full_text: None,
+                is_deleted: Some(true), // 软删除
+                file_metadata: None,
+                type_metadata: None,
+            };
+            
+            // 调用 tagbox-core 的更新功能
+            tagbox_core::edit_file(file_id, delete_request, config).await?;
             
             Ok(())
         } else {
@@ -428,7 +462,9 @@ impl EditDialog {
             );
             
             if choice == Some(0) {
-                let _ = sender_clone.send(AppEvent::DeleteFile("current".to_string()));
+                // 发送删除事件，这里使用一个特殊标识
+                // 实际的文件ID会在 app.rs 中从 editing_file_id 获取
+                let _ = sender_clone.send(AppEvent::DeleteFile("editing".to_string()));
             }
         });
         

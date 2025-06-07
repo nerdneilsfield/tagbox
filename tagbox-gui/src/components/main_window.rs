@@ -9,7 +9,7 @@ use tagbox_core::{config::AppConfig, types::FileEntry};
 use crate::state::{AppEvent, AppState};
 use crate::components::{
     SearchBar, CategoryTree, FilePreview, FileList, 
-    AppMenuBar, StatusBar, DragDropArea
+    AppMenuBar, StatusBar, DragDropArea, EditDialog
 };
 
 pub struct MainWindow {
@@ -25,6 +25,7 @@ pub struct MainWindow {
     file_list: FileList,
     pub file_preview: FilePreview,
     drag_drop_area: DragDropArea,
+    pub edit_dialog: EditDialog,
     
     // 布局容器
     main_container: Flex,
@@ -94,6 +95,10 @@ impl MainWindow {
         // 启用拖拽区域的活动状态
         drag_drop_area.set_active(true);
         
+        // 创建编辑对话框
+        let mut edit_dialog = EditDialog::new(event_sender.clone());
+        edit_dialog.set_callbacks();
+        
         Ok((Self {
             window,
             menu_bar,
@@ -103,6 +108,7 @@ impl MainWindow {
             file_list,
             file_preview,
             drag_drop_area,
+            edit_dialog,
             main_container,
             state,
             event_sender,
@@ -440,8 +446,60 @@ impl MainWindow {
         
         // 同时更新状态栏
         self.status_bar.set_message(&format!("❌ Import failed: {} ({})", filename, error), true);
+    }
+    
+    // 打开编辑对话框
+    pub async fn open_edit_dialog(&mut self, file_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+        // 加载文件信息到编辑对话框
+        self.edit_dialog.load_file(file_id, &self.state.config).await?;
         
-        println!("Import failed: {} - {}", path.display(), error);
+        // 显示对话框
+        self.edit_dialog.show();
+        
+        Ok(())
+    }
+    
+    // 关闭编辑对话框
+    pub fn close_edit_dialog(&mut self) {
+        self.edit_dialog.hide();
+        self.edit_dialog.clear_form();
+    }
+    
+    // 保存文件编辑
+    pub async fn save_file_edit(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // 验证表单
+        self.edit_dialog.validate_form()?;
+        
+        // 保存更改
+        self.edit_dialog.save_changes(&self.state.config).await?;
+        
+        // 关闭对话框
+        self.close_edit_dialog();
+        
+        // 更新状态栏
+        self.status_bar.set_temp_status("✅ File saved successfully", 2000);
+        
+        // 刷新文件列表
+        let _ = self.event_sender.send(AppEvent::RefreshView);
+        
+        Ok(())
+    }
+    
+    // 删除文件
+    pub async fn delete_file_edit(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // 执行软删除
+        self.edit_dialog.delete_file(&self.state.config).await?;
+        
+        // 关闭对话框
+        self.close_edit_dialog();
+        
+        // 更新状态栏
+        self.status_bar.set_temp_status("🗑️ File deleted", 2000);
+        
+        // 刷新文件列表
+        let _ = self.event_sender.send(AppEvent::RefreshView);
+        
+        Ok(())
     }
     
     // 批量导入进度更新
