@@ -12,19 +12,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
     
     // 加载配置 - 这里使用默认配置路径，实际应用中可以从命令行参数获取
-    let config_path = Path::new("./config.toml");
+    let config_path = Path::new("config.toml");
     
     // 由于我们需要在同步上下文中初始化异步代码，我们使用 tokio 的 Runtime
     let rt = tokio::runtime::Runtime::new()?;
     
     let config = rt.block_on(async {
         match tagbox_core::load_config(config_path).await {
-            Ok(config) => config,
+            Ok(config) => {
+                eprintln!("Successfully loaded config from {}", config_path.display());
+                eprintln!("Database path: {}", config.database.path.display());
+                config
+            },
             Err(e) => {
                 eprintln!("Failed to load config from {}: {}", config_path.display(), e);
                 eprintln!("Using default configuration...");
                 // 使用默认配置
-                tagbox_core::config::AppConfig::default()
+                let default_config = tagbox_core::config::AppConfig::default();
+                eprintln!("Default database path: {}", default_config.database.path.display());
+                default_config
             }
         }
     });

@@ -170,16 +170,21 @@ impl AsyncBridge {
         let sender = self.event_sender.clone();
         self.runtime.spawn(async move {
             info!("Loading all files");
+            info!("Database path: {}", config.database.path.display());
             let _ = sender.send(AppEvent::LoadingStart);
             
             // 使用空查询搜索所有文件
             match tagbox_core::search_files_advanced("*", None, &config).await {
                 Ok(result) => {
                     info!("Loaded {} files", result.entries.len());
+                    for entry in &result.entries {
+                        info!("File: {} - {}", entry.id, entry.title);
+                    }
                     let _ = sender.send(AppEvent::SearchResults(result));
                 }
                 Err(e) => {
                     error!("Failed to load files: {}", e);
+                    error!("Error details: {:?}", e);
                     let _ = sender.send(AppEvent::Error(format!("Failed to load files: {}", e)));
                 }
             }

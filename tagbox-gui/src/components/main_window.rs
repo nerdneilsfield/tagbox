@@ -360,9 +360,12 @@ impl MainWindow {
     // 打开设置对话框
     pub fn open_settings_dialog(&mut self) {
         use crate::components::SettingsDialog;
+        use std::path::Path;
         
         let mut dialog = SettingsDialog::new(self.event_sender.clone());
-        dialog.load_config(self.state.config.clone(), None);
+        // 传递配置文件路径
+        let config_path = Some(Path::new("config.toml").to_path_buf());
+        dialog.load_config(self.state.config.clone(), config_path);
         dialog.show();
         
         // 等待对话框关闭
