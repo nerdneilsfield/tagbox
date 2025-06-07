@@ -7,7 +7,9 @@ use fltk::{
     frame::Frame,
 };
 use std::sync::mpsc::Sender;
+use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 use crate::state::AppEvent;
 
 pub struct StatusBar {
@@ -35,6 +37,11 @@ pub struct StatusBar {
     
     // 进度信息
     progress_frame: Frame,
+    
+    // 状态管理
+    last_temp_message_time: Arc<Mutex<Option<Instant>>>,
+    temp_message_duration: Arc<Mutex<Duration>>,
+    default_message: String,
     
     event_sender: Sender<AppEvent>,
 }
@@ -145,6 +152,9 @@ impl StatusBar {
             db_size,
             search_status,
             progress_frame,
+            last_temp_message_time: Arc::new(Mutex::new(None)),
+            temp_message_duration: Arc::new(Mutex::new(Duration::from_secs(3))),
+            default_message: "Ready".to_string(),
             event_sender,
         };
         
@@ -174,7 +184,7 @@ impl StatusBar {
         self.status_message.redraw();
     }
     
-    // 设置消息（带错误标志）
+    // 设置消息（带错误标志和自动重置）
     pub fn set_message(&mut self, message: &str, is_error: bool) {
         self.status_message.set_value(message);
         
@@ -187,20 +197,28 @@ impl StatusBar {
         
         self.status_message.redraw();
         
-        // 3秒后恢复默认颜色
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_secs(3));
-            // 注意：实际应用中需要通过事件系统来重置颜色
-        });
+        // 设置临时消息标记
+        if let Ok(mut time_guard) = self.last_temp_message_time.lock() {
+            *time_guard = Some(Instant::now());
+        }
+        if let Ok(mut duration_guard) = self.temp_message_duration.lock() {
+            *duration_guard = Duration::from_secs(3);
+        }
     }
     
     // 设置临时状态消息（会自动清除）
     pub fn set_temp_status(&mut self, message: &str, duration_ms: u64) {
-        self.set_status(message);
+        self.status_message.set_value(message);
+        self.status_message.set_text_color(Color::from_rgb(23, 162, 184)); // 蓝色
+        self.status_message.redraw();
         
-        // TODO: 实现定时器来清除状态
-        // 现在简单设置一个标记
-        println!("Temp status: {} (duration: {}ms)", message, duration_ms);
+        // 设置临时消息时间戳和持续时间
+        if let Ok(mut time_guard) = self.last_temp_message_time.lock() {
+            *time_guard = Some(Instant::now());
+        }
+        if let Ok(mut duration_guard) = self.temp_message_duration.lock() {
+            *duration_guard = Duration::from_millis(duration_ms);
+        }
     }
     
     // 更新文件计数
@@ -343,16 +361,57 @@ impl StatusBar {
     
     // 清除所有状态
     pub fn reset(&mut self) {
-        self.set_status("Ready");
+        self.set_status(&self.default_message.clone());
         self.set_file_count(0, None);
         self.set_selected_count(0);
         self.set_search_status(SearchStatus::Ready);
         self.hide_progress();
+        
+        // 重置临时消息状态
+        if let Ok(mut time_guard) = self.last_temp_message_time.lock() {
+            *time_guard = None;
+        }
     }
     
     // 获取容器引用（用于主窗口布局）
     pub fn widget(&mut self) -> &mut Group {
         &mut self.container
+    }
+    
+    // 更新状态栏（检查临时消息是否过期）
+    pub fn update(&mut self) {
+        if let (Ok(time_guard), Ok(duration_guard)) = (self.last_temp_message_time.lock(), self.temp_message_duration.lock()) {
+            if let Some(last_time) = *time_guard {
+                if last_time.elapsed() >= *duration_guard {
+                    // 临时消息已过期，恢复默认状态
+                    self.status_message.set_value(&self.default_message);
+                    self.status_message.set_text_color(Color::Black);
+                    self.status_message.redraw();
+                    
+                    // 清除时间戳
+                    drop(time_guard);
+                    if let Ok(mut time_guard) = self.last_temp_message_time.lock() {
+                        *time_guard = None;
+                    }
+                }
+            }
+        }
+    }
+    
+    // 设置默认消息
+    pub fn set_default_message(&mut self, message: &str) {
+        self.default_message = message.to_string();
+    }
+    
+    // 强制重置到默认状态
+    pub fn reset_to_default(&mut self) {
+        self.status_message.set_value(&self.default_message);
+        self.status_message.set_text_color(Color::Black);
+        self.status_message.redraw();
+        
+        if let Ok(mut time_guard) = self.last_temp_message_time.lock() {
+            *time_guard = None;
+        }
     }
     
     // 更新整体统计信息

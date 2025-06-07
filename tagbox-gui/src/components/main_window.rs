@@ -17,7 +17,7 @@ pub struct MainWindow {
     
     // 菜单栏和状态栏
     menu_bar: AppMenuBar,
-    status_bar: StatusBar,
+    pub status_bar: StatusBar,
     
     // 主要组件
     search_bar: SearchBar,
@@ -167,6 +167,7 @@ impl MainWindow {
         
         // 更新状态栏
         self.status_bar.set_file_count(self.state.get_files().len(), None);
+        self.status_bar.set_temp_status(&format!("✅ Loaded {} files", search_result.entries.len()), 2000);
     }
     
     pub fn set_loading(&mut self, loading: bool) {
@@ -175,6 +176,13 @@ impl MainWindow {
         self.file_preview.set_loading(loading);
         self.file_list.set_loading(loading);
         self.status_bar.set_loading(loading, None);
+        
+        // 更新状态栏消息
+        if loading {
+            self.status_bar.set_default_message("Loading...");
+        } else {
+            self.status_bar.set_default_message("Ready");
+        }
     }
     
     // 异步加载分类树
@@ -462,5 +470,10 @@ impl MainWindow {
     // 获取当前文件列表（用于事件处理）
     pub fn get_current_files(&self) -> &Vec<tagbox_core::types::FileEntry> {
         &self.state.current_files
+    }
+    
+    // 更新状态栏（定期调用）
+    pub fn update_status_bar(&mut self) {
+        self.status_bar.update();
     }
 }

@@ -35,7 +35,18 @@ impl App {
         tracing::info!("Loading initial file list...");
         self.async_bridge.spawn_load_all_files(self.config.clone());
         
+        // 设置定时器来更新状态栏
+        let mut last_update = std::time::Instant::now();
+        let update_interval = std::time::Duration::from_millis(100); // 100ms更新一次
+        
         while app.wait() {
+            // 定期更新状态栏
+            let now = std::time::Instant::now();
+            if now.duration_since(last_update) >= update_interval {
+                self.main_window.update_status_bar();
+                last_update = now;
+            }
+            
             // 处理应用事件
             if let Ok(event) = self.event_receiver.try_recv() {
                 self.handle_event(event)?;
@@ -55,7 +66,14 @@ impl App {
             AppEvent::SearchResults(result) => {
                 tracing::info!("Search completed: {} results", result.entries.len());
                 self.main_window.set_loading(false);
-                self.main_window.update_file_list(result.entries);
+                self.main_window.update_file_list(result.entries.clone());
+                
+                // 更新搜索状态
+                if result.entries.is_empty() {
+                    self.main_window.status_bar.set_temp_status("⚠️ No results found", 3000);
+                } else {
+                    self.main_window.status_bar.set_temp_status(&format!("✅ Found {} results", result.entries.len()), 2000);
+                }
             }
             AppEvent::FileSelected(file_id) => {
                 tracing::info!("File selected: {}", file_id);
@@ -66,12 +84,19 @@ impl App {
             AppEvent::FileImport(path) => {
                 tracing::info!("Importing file: {}", path.display());
                 self.main_window.set_loading(true);
+                
+                let filename = path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("file");
+                self.main_window.status_bar.set_temp_status(&format!("📥 Importing: {}", filename), 1000);
+                
                 self.async_bridge.spawn_import_file(path, self.config.clone());
             }
             AppEvent::CategorySelect(category_path) => {
                 tracing::info!("Category selected: {}", category_path);
                 self.main_window.handle_category_select(category_path.clone());
                 self.main_window.set_loading(true);
+                self.main_window.status_bar.set_temp_status(&format!("📋 Filtering by: {}", category_path), 1000);
                 self.async_bridge.spawn_category_search(category_path, self.config.clone());
             }
             AppEvent::CategoryExpand(category_path) => {
@@ -106,6 +131,7 @@ impl App {
             AppEvent::Error(msg) => {
                 tracing::error!("Application error: {}", msg);
                 self.main_window.set_loading(false);
+                self.main_window.status_bar.set_message(&format!("❌ Error: {}", msg), true);
                 fltk::dialog::alert_default(&format!("Error: {}", msg));
             }
             AppEvent::OpenSettings => {
@@ -126,8 +152,9 @@ impl App {
             }
             AppEvent::FileImported(file) => {
                 tracing::info!("File imported: {}", file.title);
-                // 可以显示导入成功的通知
+                // 显示导入成功的通知
                 self.main_window.show_import_success(&file);
+                self.main_window.status_bar.set_temp_status(&format!("✅ Imported: {}", file.title), 3000);
             }
             AppEvent::AdvancedSearch(options) => {
                 tracing::info!("Performing advanced search");
@@ -138,7 +165,11 @@ impl App {
             AppEvent::OpenFile(file_ref) => {
                 tracing::info!("Opening file: {}", file_ref);
                 if let Some(file) = self.get_file_by_ref(&file_ref) {
-                    if let Err(e) = crate::utils::open_file(&file.path) {
+                    let file_title = file.title.clone();
+                    let file_path = file.path.clone();
+                    
+                    self.main_window.status_bar.set_temp_status(&format!("📄 Opening: {}", file_title), 1500);
+                    if let Err(e) = crate::utils::open_file(&file_path) {
                         let _ = self.main_window.event_sender.send(AppEvent::Error(format!("Failed to open file: {}", e)));
                     }
                 }
@@ -156,14 +187,18 @@ impl App {
                     if let Err(e) = crate::utils::copy_to_clipboard(&file.path.to_string_lossy()) {
                         let _ = self.main_window.event_sender.send(AppEvent::Error(format!("Failed to copy path: {}", e)));
                     } else {
-                        println!("Path copied to clipboard: {}", file.path.display());
+                        self.main_window.status_bar.set_temp_status("📋 Path copied to clipboard", 2000);
                     }
                 }
             }
             AppEvent::ShowInFolder(file_ref) => {
                 tracing::info!("Showing file in folder: {}", file_ref);
                 if let Some(file) = self.get_file_by_ref(&file_ref) {
-                    if let Err(e) = crate::utils::open_folder(&file.path) {
+                    let file_title = file.title.clone();
+                    let file_path = file.path.clone();
+                    
+                    self.main_window.status_bar.set_temp_status(&format!("📁 Opening folder: {}", file_title), 1500);
+                    if let Err(e) = crate::utils::open_folder(&file_path) {
                         let _ = self.main_window.event_sender.send(AppEvent::Error(format!("Failed to open folder: {}", e)));
                     }
                 }
