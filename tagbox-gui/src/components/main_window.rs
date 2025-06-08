@@ -9,7 +9,7 @@ use tagbox_core::{config::AppConfig, types::FileEntry};
 use crate::state::{AppEvent, AppState};
 use crate::components::{
     SearchBar, CategoryTree, FilePreview, FileList, 
-    AppMenuBar, StatusBar, DragDropArea, EditDialog, AdvancedSearchDialog
+    AppMenuBar, StatusBar, DragDropArea, EditDialog, AdvancedSearchDialog, CategoryManager, StatisticsDialog
 };
 
 pub struct MainWindow {
@@ -27,6 +27,8 @@ pub struct MainWindow {
     drag_drop_area: DragDropArea,
     pub edit_dialog: EditDialog,
     pub advanced_search_dialog: AdvancedSearchDialog,
+    pub category_manager: CategoryManager,
+    pub statistics_dialog: StatisticsDialog,
     
     // 布局容器
     main_container: Flex,
@@ -103,6 +105,12 @@ impl MainWindow {
         // 创建高级搜索对话框
         let advanced_search_dialog = AdvancedSearchDialog::new(event_sender.clone());
         
+        // 创建分类管理器
+        let category_manager = CategoryManager::new(event_sender.clone());
+        
+        // 创建统计对话框
+        let statistics_dialog = StatisticsDialog::new(event_sender.clone());
+        
         // 设置键盘快捷键
         Self::setup_keyboard_shortcuts(&mut window, event_sender.clone());
         
@@ -117,6 +125,8 @@ impl MainWindow {
             drag_drop_area,
             edit_dialog,
             advanced_search_dialog,
+            category_manager,
+            statistics_dialog,
             main_container,
             state,
             event_sender,
@@ -408,37 +418,43 @@ impl MainWindow {
         self.status_bar.set_temp_status("🔍 Opening advanced search...", 1500);
     }
     
+    // 打开分类管理器
+    pub fn open_category_manager(&mut self) {
+        // 异步加载分类数据
+        let config = self.state.config.clone();
+        let sender = self.event_sender.clone();
+        
+        // 直接显示对话框
+        self.category_manager.show();
+        
+        // 在后台加载分类数据
+        tokio::spawn(async move {
+            // 这里需要在实际实现时调用 load_categories
+            // 由于闭包限制，可能需要通过事件系统处理
+        });
+        
+        // 更新状态栏
+        self.status_bar.set_temp_status("📂 Opening category manager...", 1500);
+    }
+    
     
     // 显示统计信息对话框
     pub fn show_statistics_dialog(&mut self) {
-        // 简单的统计信息显示
-        let stats_text = format!(
-            "TagBox Statistics\n\n\
-            Current Files: {}\n\
-            Selected File: {}\n\
-            Current Query: \"{}\"\n\
-            Database Path: {}\n\
-            Storage Path: {}\n\n\
-            Keyboard Shortcuts:\n\
-            Ctrl+N: Import files\n\
-            Ctrl+F: Focus search bar\n\
-            Ctrl+S: Save current file\n\
-            Ctrl+E: Edit selected file\n\
-            Delete: Delete selected file\n\
-            F5: Refresh view\n\
-            Ctrl+,: Open settings\n\
-            Ctrl+L: Open log viewer\n\
-            Escape: Cancel/Close",
-            self.state.current_files.len(),
-            self.state.selected_file.as_ref()
-                .map(|f| f.title.as_str())
-                .unwrap_or("None"),
-            self.state.current_query,
-            self.state.config.database.path.display(),
-            self.state.config.import.paths.storage_dir.display()
-        );
+        // 显示新的统计对话框
+        self.statistics_dialog.show();
         
-        fltk::dialog::message_default(&stats_text);
+        // 异步加载统计数据
+        let config = self.state.config.clone();
+        let sender = self.event_sender.clone();
+        
+        // 在后台加载统计数据
+        tokio::spawn(async move {
+            // 这里需要在实际实现时调用 load_statistics
+            // 由于闭包限制，可能需要通过事件系统处理
+        });
+        
+        // 更新状态栏
+        self.status_bar.set_temp_status("📊 Opening statistics report...", 1500);
     }
 
     // 显示文件详情

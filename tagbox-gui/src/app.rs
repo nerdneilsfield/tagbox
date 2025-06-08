@@ -343,6 +343,28 @@ impl App {
                 tracing::info!("Opening advanced search dialog");
                 self.main_window.open_advanced_search_dialog();
             }
+            AppEvent::OpenCategoryManager => {
+                tracing::info!("Opening category manager");
+                self.main_window.open_category_manager();
+            }
+            AppEvent::CategoryCreated(category_name) => {
+                tracing::info!("Category created: {}", category_name);
+                self.main_window.status_bar.set_temp_status(&format!("✅ Category '{}' created", category_name), 2000);
+                // 刷新分类树
+                let _ = self.main_window.event_sender.send(AppEvent::RefreshView);
+            }
+            AppEvent::CategoryUpdated(category_name) => {
+                tracing::info!("Category updated: {}", category_name);
+                self.main_window.status_bar.set_temp_status(&format!("✏️ Category '{}' updated", category_name), 2000);
+                // 刷新分类树
+                let _ = self.main_window.event_sender.send(AppEvent::RefreshView);
+            }
+            AppEvent::CategoryDeleted(category_name) => {
+                tracing::info!("Category deleted: {}", category_name);
+                self.main_window.status_bar.set_temp_status(&format!("🗑️ Category '{}' deleted", category_name), 2000);
+                // 刷新分类树
+                let _ = self.main_window.event_sender.send(AppEvent::RefreshView);
+            }
             _ => {
                 tracing::debug!("Unhandled event: {:?}", event);
             }

@@ -69,6 +69,7 @@ impl AppMenuBar {
         menu_bar.add_choice("&Tools/&Export Data...");
         menu_bar.add_choice("&Tools/&Import Data...");
         menu_bar.add_choice("&Tools/");  // 分隔符
+        menu_bar.add_choice("&Tools/&Category Manager...");
         menu_bar.add_choice("&Tools/&Log Viewer");
         menu_bar.add_choice("&Tools/&Statistics");
         menu_bar.add_choice("&Tools/");  // 分隔符
@@ -170,6 +171,9 @@ impl AppMenuBar {
                         // TODO: 备份数据库
                         println!("Backup to: {}", path.display());
                     }
+                },
+                "&Category Manager..." => {
+                    let _ = sender.send(AppEvent::OpenCategoryManager);
                 },
                 "&Log Viewer" => {
                     let _ = sender.send(AppEvent::OpenLogViewer);

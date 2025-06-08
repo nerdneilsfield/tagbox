@@ -42,6 +42,10 @@ pub enum AppEvent {
     ShowStatistics,
     OpenAdvancedSearch,
     ShowAdvancedSearchDialog,
+    OpenCategoryManager,
+    CategoryCreated(String),
+    CategoryUpdated(String),
+    CategoryDeleted(String),
     
     // 键盘快捷键事件
     FocusSearchBar,
