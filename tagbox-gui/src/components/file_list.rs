@@ -3,7 +3,6 @@ use fltk::{
     browser::MultiBrowser,
     enums::{Color, Event},
     group::Group,
-    menu::MenuButton,
     app::MouseButton,
 };
 use std::sync::mpsc::Sender;
@@ -33,11 +32,16 @@ impl FileList {
         let mut browser = MultiBrowser::new(x, y, w, h, None);
         browser.set_color(Color::White);
         browser.set_selection_color(Color::from_rgb(230, 240, 255));
-        browser.set_text_size(12);
+        browser.set_text_size(12); // 稍微增大字体以提高可读性
         
         // 添加表头
-        let header = format!("{:<40} {:<25} {:<6} {:<20} {:<15}", 
-            "Title", "Authors", "Year", "Tags", "Category");
+        let header = format!("{}\t{}\t{}\t{}\t{}", 
+            "Title".to_string() + &" ".repeat(40 - 5),
+            "Authors".to_string() + &" ".repeat(25 - 7),
+            "Year".to_string() + &" ".repeat(6 - 4),
+            "Tags".to_string() + &" ".repeat(15 - 4),
+            "Category".to_string() + &" ".repeat(15 - 8)
+        );
         browser.add(&header);
         browser.set_format_char('@');
         browser.add("@-");  // 添加分隔线
@@ -105,8 +109,13 @@ impl FileList {
         self.browser.clear();
         
         // 重新添加表头
-        let header = format!("{:<40} {:<25} {:<6} {:<20} {:<15}", 
-            "Title", "Authors", "Year", "Tags", "Category");
+        let header = format!("{}\t{}\t{}\t{}\t{}", 
+            Self::format_fixed_width("Title", 40),
+            Self::format_fixed_width("Authors", 25),
+            Self::format_fixed_width("Year", 6),
+            Self::format_fixed_width("Tags", 15),
+            Self::format_fixed_width("Category", 15)
+        );
         self.browser.add(&header);
         self.browser.add("@-");  // 分隔线
         
@@ -127,17 +136,19 @@ impl FileList {
             } else {
                 &file.title
             };
-            let title = Self::truncate_string(display_title, 40);
+            let title = Self::format_fixed_width(display_title, 40);
             
             // Authors
             let authors_str = if file.authors.is_empty() {
                 "Unknown".to_string()
             } else {
-                Self::truncate_string(&file.authors.join(", "), 25)
+                file.authors.join(", ")
             };
+            let authors_str = Self::format_fixed_width(&authors_str, 25);
             
             // Year
             let year_str = file.year.map(|y| y.to_string()).unwrap_or_else(|| "----".to_string());
+            let year_str = Self::format_fixed_width(&year_str, 6);
             
             // Tags
             let tags_str = match file.tags.len() {
@@ -145,16 +156,18 @@ impl FileList {
                 1 => file.tags[0].clone(),
                 n => format!("{} tags", n),
             };
+            let tags_str = Self::format_fixed_width(&tags_str, 15);
             
             // Category
             let category_str = if file.category1.is_empty() {
                 "Uncategorized".to_string()
             } else {
-                Self::truncate_string(&file.category1, 15)
+                file.category1.clone()
             };
+            let category_str = Self::format_fixed_width(&category_str, 15);
             
-            // 格式化行数据
-            let line = format!("{:<40} {:<25} {:<6} {:<20} {:<15}", 
+            // 使用制表符分隔，这样在等宽字体下对齐效果更好
+            let line = format!("{}\t{}\t{}\t{}\t{}", 
                 title, authors_str, year_str, tags_str, category_str);
             
             self.browser.add(&line);
@@ -173,6 +186,19 @@ impl FileList {
         }
     }
     
+    // 格式化字符串到固定宽度（考虑中文字符）
+    fn format_fixed_width(s: &str, width: usize) -> String {
+        let s = Self::truncate_string(s, width);
+        let char_count = s.chars().count();
+        
+        if char_count < width {
+            // 补充空格
+            format!("{}{}", s, " ".repeat(width - char_count))
+        } else {
+            s
+        }
+    }
+    
     pub fn clear(&mut self) {
         let mut files = self.files.lock().unwrap();
         files.clear();
@@ -180,8 +206,13 @@ impl FileList {
         self.browser.clear();
         
         // 重新添加表头
-        let header = format!("{:<40} {:<25} {:<6} {:<20} {:<15}", 
-            "Title", "Authors", "Year", "Tags", "Category");
+        let header = format!("{}\t{}\t{}\t{}\t{}", 
+            Self::format_fixed_width("Title", 40),
+            Self::format_fixed_width("Authors", 25),
+            Self::format_fixed_width("Year", 6),
+            Self::format_fixed_width("Tags", 15),
+            Self::format_fixed_width("Category", 15)
+        );
         self.browser.add(&header);
         self.browser.add("@-");
     }

@@ -188,7 +188,8 @@ impl AppMenuBar {
                 // 配置菜单
                 "&Select Config File..." => {
                     if let Some(config_path) = Self::browse_config_dialog() {
-                        Self::load_config_file(&config_path);
+                        // 发送配置更新事件，立即生效
+                        let _ = sender.send(AppEvent::ConfigUpdated(config_path));
                     }
                 },
                 "&Edit Config File" => {
@@ -294,10 +295,7 @@ impl AppMenuBar {
         choice == Some(0)
     }
     
-    fn load_config_file(path: &std::path::Path) {
-        println!("Loading config file: {}", path.display());
-        fltk::dialog::message_default(&format!("Config file selected: {}\n\nRestart the application to use the new configuration.", path.display()));
-    }
+    // 这个方法不再需要，直接发送ConfigUpdated事件
     
     fn edit_current_config() {
         let config_path = std::path::Path::new("./config.toml");

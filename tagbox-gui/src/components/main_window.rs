@@ -1,15 +1,15 @@
 use fltk::{
     prelude::*,
     window::Window,
-    group::{Flex, FlexType},
-    enums::{Color, Event, Key, FrameType},
+    group::Tile,
+    enums::{Color, Event, Key},
 };
 use std::sync::mpsc::{Receiver, Sender, channel};
 use tagbox_core::{config::AppConfig, types::FileEntry};
 use crate::state::{AppEvent, AppState};
 use crate::components::{
     SearchBar, CategoryTree, FilePreview, FileList, 
-    AppMenuBar, StatusBar, DragDropArea, EditDialog, AdvancedSearchDialog, CategoryManager, StatisticsDialog
+    AppMenuBar, StatusBar, DragDropArea, EditDialog, AdvancedSearchDialog, CategoryManager, StatisticsDialog, SettingsDialog
 };
 
 pub struct MainWindow {
@@ -29,9 +29,11 @@ pub struct MainWindow {
     pub advanced_search_dialog: AdvancedSearchDialog,
     pub category_manager: CategoryManager,
     pub statistics_dialog: StatisticsDialog,
+    pub settings_dialog: SettingsDialog,
     
     // 布局容器
-    main_container: Flex,
+    main_tile: Tile,
+    vertical_tile: Tile,
     
     // 状态和事件
     state: AppState,
@@ -56,48 +58,50 @@ impl MainWindow {
         let mut search_bar = SearchBar::new(5, 30, 1190, 50, event_sender.clone());
         search_bar.enable_live_suggestions(config.clone());
         
-        // 主体布局容器 (搜索栏下方到状态栏上方)
-        let mut main_container = Flex::new(5, 85, 1190, 740, None);
-        main_container.set_type(FlexType::Row);
-        main_container.set_spacing(8);
-        main_container.set_frame(FrameType::NoBox); // 无边框
+        // 主体布局容器使用 Tile 以支持拖拽调整大小 (搜索栏下方到状态栏上方)
+        let mut main_tile = Tile::new(5, 85, 1190, 740, None);
         
-        // 左侧分类树 (25% 宽度)
-        let mut category_tree = CategoryTree::new(0, 0, 295, 740, event_sender.clone());
-        main_container.fixed(category_tree.widget(), 295);
+        // 左侧分类树 (初始 25% 宽度)
+        let mut category_tree = CategoryTree::new(5, 85, 295, 740, event_sender.clone());
         
-        // 中间区域：文件列表和拖拽区域 (40% 宽度)
-        let mut middle_flex = Flex::new(0, 0, 475, 740, None);
-        middle_flex.set_type(FlexType::Column);
-        middle_flex.set_spacing(8);
+        // 中间垂直 Tile：文件列表和拖拽区域 (初始 40% 宽度)
+        let mut vertical_tile = Tile::new(303, 85, 475, 740, None);
         
-        // 文件列表 (上方 80%)
-        let mut file_list = FileList::new(0, 0, 475, 590, event_sender.clone());
-        middle_flex.fixed(file_list.widget(), 590);
+        // 文件列表 (上方，初始 80%)
+        let mut file_list = FileList::new(303, 85, 475, 590, event_sender.clone());
         
-        // 拖拽区域 (下方 20%)
-        let mut drag_drop_area = DragDropArea::new(0, 0, 475, 140, event_sender.clone());
-        middle_flex.fixed(drag_drop_area.widget(), 140);
+        // 拖拽区域 (下方，初始 20%)
+        let mut drag_drop_area = DragDropArea::new(303, 680, 475, 145, event_sender.clone());
         
-        middle_flex.end();
-        main_container.fixed(&middle_flex, 475);
+        vertical_tile.end();
         
-        // 右侧预览面板 (35% 宽度)
-        let mut file_preview = FilePreview::new(0, 0, 415, 740, event_sender.clone());
-        main_container.fixed(file_preview.widget(), 415);
+        // 右侧预览面板 (初始 35% 宽度)
+        let mut file_preview = FilePreview::new(786, 85, 409, 740, event_sender.clone());
         
-        main_container.end();
+        main_tile.end();
         
         // 状态栏 (底部 25px)
         let status_bar = StatusBar::new(0, 825, 1200, 25, event_sender.clone());
         
         window.end();
         
-        // 设置窗口可调整大小 - 主容器作为resizable
-        window.resizable(&main_container);
+        // 设置窗口可调整大小 - 主tile作为resizable
+        window.resizable(&main_tile);
         
         // 创建应用状态
         let state = AppState::new(config);
+        
+        // 设置窗口大小改变时的回调
+        window.handle(move |win, event| {
+            match event {
+                Event::Resize => {
+                    // 窗口大小改变时，强制重绘所有组件
+                    win.redraw();
+                    true
+                }
+                _ => false
+            }
+        });
         
         // 设置增强的拖拽支持
         Self::setup_drag_drop(&mut window, event_sender.clone());
@@ -118,6 +122,10 @@ impl MainWindow {
         // 创建统计对话框
         let statistics_dialog = StatisticsDialog::new(event_sender.clone());
         
+        // 创建设置对话框
+        let mut settings_dialog = SettingsDialog::new(event_sender.clone());
+        settings_dialog.load_config(state.config.clone(), Some(std::path::Path::new("config.toml").to_path_buf()));
+        
         // 设置键盘快捷键
         Self::setup_keyboard_shortcuts(&mut window, event_sender.clone());
         
@@ -134,7 +142,9 @@ impl MainWindow {
             advanced_search_dialog,
             category_manager,
             statistics_dialog,
-            main_container,
+            settings_dialog,
+            main_tile,
+            vertical_tile,
             state,
             event_sender,
         }, event_receiver))
@@ -390,19 +400,11 @@ impl MainWindow {
     
     // 打开设置对话框
     pub fn open_settings_dialog(&mut self) {
-        use crate::components::SettingsDialog;
-        use std::path::Path;
-        
-        let mut dialog = SettingsDialog::new(self.event_sender.clone());
-        // 传递配置文件路径
-        let config_path = Some(Path::new("config.toml").to_path_buf());
-        dialog.load_config(self.state.config.clone(), config_path);
-        dialog.show();
-        
-        // 等待对话框关闭
-        while dialog.shown() {
-            fltk::app::wait();
-        }
+        println!("Opening configuration settings...");
+        // 更新配置
+        self.settings_dialog.load_config(self.state.config.clone(), Some(std::path::Path::new("config.toml").to_path_buf()));
+        // 显示对话框
+        self.settings_dialog.show();
     }
     
     // 打开日志查看器对话框
