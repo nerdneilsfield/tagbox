@@ -1,7 +1,7 @@
 use freya::prelude::*;
 use futures::channel::mpsc::UnboundedReceiver;
 use crate::router::Router;
-use crate::components::{TopBar, CategoryTree, FilePreview};
+use crate::components::{TopBar, CategoryTree, FilePreview, ToastContainer};
 use crate::state::{AppState, FileEntry};
 
 pub fn App() -> Element {
@@ -96,6 +96,13 @@ pub fn App() -> Element {
             background: "rgb(250, 250, 250)",
             
             Router {}
+            
+            // Toast 通知容器
+            if let Some(state) = app_state.read().as_ref() {
+                ToastContainer {
+                    messages: use_signal(|| state.toast_messages.clone()),
+                }
+            }
         }
     }
 }

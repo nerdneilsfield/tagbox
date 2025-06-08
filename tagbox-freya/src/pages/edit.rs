@@ -1,12 +1,13 @@
 use freya::prelude::*;
 use crate::state::{AppState, FileEntry};
+use crate::components::ConfirmDialog;
 use futures::{StreamExt, channel::mpsc::UnboundedReceiver};
 use tagbox_core::types::ImportMetadata;
 use std::collections::HashMap;
 
 #[component]
 pub fn EditPage(file_id: String) -> Element {
-    let app_state = use_context::<Signal<Option<AppState>>>();
+    let mut app_state = use_context::<Signal<Option<AppState>>>();
     
     // 查找要编辑的文件
     let file: Option<FileEntry> = app_state.read().as_ref()
@@ -19,15 +20,23 @@ pub fn EditPage(file_id: String) -> Element {
     
     match file {
         Some(file) => {
-            let title = use_signal(|| file.title.clone());
-            let authors = use_signal(|| file.authors.join(", "));
-            let tags = use_signal(|| file.tags.join(", "));
+            // 保存原始数据用于重置
+            let original_file = file.clone();
+            
+            let mut title = use_signal(|| file.title.clone());
+            let mut authors = use_signal(|| file.authors.join(", "));
+            let mut tags = use_signal(|| file.tags.join(", "));
             let mut summary = use_signal(|| file.summary.clone().unwrap_or_default());
-            let category1 = use_signal(|| file.category.as_ref().map(|c| c.level1.clone()).unwrap_or_default());
-            let category2 = use_signal(|| file.category.as_ref().and_then(|c| c.level2.clone()).unwrap_or_default());
-            let category3 = use_signal(|| file.category.as_ref().and_then(|c| c.level3.clone()).unwrap_or_default());
+            let mut category1 = use_signal(|| file.category.as_ref().map(|c| c.level1.clone()).unwrap_or_default());
+            let mut category2 = use_signal(|| file.category.as_ref().and_then(|c| c.level2.clone()).unwrap_or_default());
+            let mut category3 = use_signal(|| file.category.as_ref().and_then(|c| c.level3.clone()).unwrap_or_default());
             let mut is_saving = use_signal(|| false);
             let mut save_error = use_signal(|| None::<String>);
+            let mut show_delete_dialog = use_signal(|| false);
+            let mut is_deleting = use_signal(|| false);
+            let mut delete_error = use_signal(|| None::<String>);
+            let mut is_extracting = use_signal(|| false);
+            let mut extract_error = use_signal(|| None::<String>);
             
             // 保存文件的协程
             let file_id = file.id.clone();
@@ -64,20 +73,103 @@ pub fn EditPage(file_id: String) -> Element {
                             type_metadata: None,
                         };
                         
-                        if let Some(state) = app_state.read().as_ref() {
-                            match state.service.update_file(&file_id, metadata).await {
-                                Ok(_) => {
-                                    tracing::info!("File updated successfully");
-                                    // TODO: 导航回主页面或显示成功消息
-                                },
-                                Err(e) => {
-                                    save_error.set(Some(format!("保存失败: {}", e)));
-                                    tracing::error!("Failed to save file: {}", e);
+                        let result = if let Some(state) = app_state.read().as_ref() {
+                            state.service.update_file(&file_id, metadata).await
+                        } else {
+                            Err(anyhow::anyhow!("App state not available"))
+                        };
+                        
+                        match result {
+                            Ok(_) => {
+                                tracing::info!("File updated successfully");
+                                if let Some(state) = app_state.write().as_mut() {
+                                    state.show_success("文件保存成功");
                                 }
+                            },
+                            Err(e) => {
+                                save_error.set(Some(format!("保存失败: {}", e)));
+                                tracing::error!("Failed to save file: {}", e);
                             }
                         }
                         
                         is_saving.set(false);
+                    }
+                }
+            });
+            
+            // 删除文件的协程
+            let file_id_for_delete = file.id.clone();
+            let delete_file_coroutine = use_coroutine(move |mut rx: UnboundedReceiver<()>| {
+                let file_id = file_id_for_delete.clone();
+                async move {
+                    while let Some(_) = rx.next().await {
+                        is_deleting.set(true);
+                        delete_error.set(None);
+                        
+                        let result = if let Some(state) = app_state.read().as_ref() {
+                            state.service.delete_file(&file_id).await
+                        } else {
+                            Err(anyhow::anyhow!("App state not available"))
+                        };
+                        
+                        match result {
+                            Ok(_) => {
+                                tracing::info!("File deleted successfully");
+                                if let Some(state) = app_state.write().as_mut() {
+                                    state.show_success("文件删除成功");
+                                }
+                                // TODO: 导航回主页面
+                            },
+                            Err(e) => {
+                                delete_error.set(Some(format!("删除失败: {}", e)));
+                                tracing::error!("Failed to delete file: {}", e);
+                            }
+                        }
+                        
+                        is_deleting.set(false);
+                    }
+                }
+            });
+            
+            // 重新提取元数据的协程
+            let file_path = file.path.clone();
+            let extract_metadata_coroutine = use_coroutine(move |mut rx: UnboundedReceiver<()>| {
+                let file_path = file_path.clone();
+                async move {
+                    while let Some(_) = rx.next().await {
+                        is_extracting.set(true);
+                        extract_error.set(None);
+                        
+                        let path = std::path::PathBuf::from(&file_path);
+                        let result = if let Some(state) = app_state.read().as_ref() {
+                            state.service.extract_metadata(&path).await
+                        } else {
+                            Err(anyhow::anyhow!("App state not available"))
+                        };
+                        
+                        match result {
+                            Ok(metadata) => {
+                                // 更新表单字段
+                                title.set(metadata.title.clone());
+                                authors.set(metadata.authors.join(", "));
+                                tags.set(metadata.tags.join(", "));
+                                summary.set(metadata.summary.clone().unwrap_or_default());
+                                category1.set(metadata.category1.clone());
+                                category2.set(metadata.category2.clone().unwrap_or_default());
+                                category3.set(metadata.category3.clone().unwrap_or_default());
+                                
+                                tracing::info!("Metadata re-extracted successfully");
+                                if let Some(state) = app_state.write().as_mut() {
+                                    state.show_success("元数据提取成功");
+                                }
+                            },
+                            Err(e) => {
+                                extract_error.set(Some(format!("元数据提取失败: {}", e)));
+                                tracing::error!("Failed to extract metadata: {}", e);
+                            }
+                        }
+                        
+                        is_extracting.set(false);
                     }
                 }
             });
@@ -123,6 +215,21 @@ pub fn EditPage(file_id: String) -> Element {
                                 
                                 label {
                                     color: "rgb(200, 50, 50)",
+                                    "{error}"
+                                }
+                            }
+                        }
+                        
+                        // 提取错误消息显示
+                        if let Some(error) = extract_error.read().as_ref() {
+                            rect {
+                                width: "100%",
+                                padding: "15",
+                                background: "rgb(255, 243, 224)",
+                                corner_radius: "4",
+                                
+                                label {
+                                    color: "rgb(180, 83, 9)",
                                     "{error}"
                                 }
                             }
@@ -272,17 +379,28 @@ pub fn EditPage(file_id: String) -> Element {
                             
                             Button {
                                 onpress: move |_| {
-                                    // TODO: 重新提取元数据
-                                    tracing::info!("Re-extract metadata");
+                                    extract_metadata_coroutine.send(());
                                 },
                                 
-                                label { "Re-extract Metadata" }
+                                label { if is_extracting() { "Extracting..." } else { "Re-extract Metadata" } }
                             }
                             
                             Button {
                                 onpress: move |_| {
-                                    // TODO: 重置到原始值
-                                    tracing::info!("Reset to original");
+                                    // 重置所有字段到原始值
+                                    title.set(original_file.title.clone());
+                                    authors.set(original_file.authors.join(", "));
+                                    tags.set(original_file.tags.join(", "));
+                                    summary.set(original_file.summary.clone().unwrap_or_default());
+                                    category1.set(original_file.category.as_ref().map(|c| c.level1.clone()).unwrap_or_default());
+                                    category2.set(original_file.category.as_ref().and_then(|c| c.level2.clone()).unwrap_or_default());
+                                    category3.set(original_file.category.as_ref().and_then(|c| c.level3.clone()).unwrap_or_default());
+                                    
+                                    // 清除错误消息
+                                    save_error.set(None);
+                                    delete_error.set(None);
+                                    
+                                    tracing::info!("Reset to original values");
                                 },
                                 
                                 label { "Reset to Original" }
@@ -292,11 +410,10 @@ pub fn EditPage(file_id: String) -> Element {
                             
                             Button {
                                 onpress: move |_| {
-                                    // TODO: 删除文件
-                                    tracing::info!("Delete file");
+                                    show_delete_dialog.set(true);
                                 },
                                 
-                                label { "Delete" }
+                                label { if is_deleting() { "Deleting..." } else { "Delete" } }
                             }
                             
                             Button {
@@ -317,6 +434,38 @@ pub fn EditPage(file_id: String) -> Element {
                                 
                                 label { if is_saving() { "Saving..." } else { "Save" } }
                             }
+                        }
+                    }
+                }
+                
+                // 删除确认对话框
+                ConfirmDialog {
+                    title: "删除文件",
+                    message: "确定要删除这个文件吗？此操作无法撤销。",
+                    is_open: show_delete_dialog,
+                    on_confirm: move |_| {
+                        delete_file_coroutine.send(());
+                    },
+                    on_cancel: move |_| {
+                        // 取消时不做任何操作
+                    },
+                }
+                
+                // 删除错误提示
+                if let Some(error) = delete_error.read().as_ref() {
+                    rect {
+                        position: "absolute",
+                        position_bottom: "20",
+                        position_left: "50%",
+                        offset_x: "-200",
+                        width: "400",
+                        padding: "15",
+                        background: "rgb(254, 226, 226)",
+                        corner_radius: "4",
+                        
+                        label {
+                            color: "rgb(185, 28, 28)",
+                            "{error}"
                         }
                     }
                 }

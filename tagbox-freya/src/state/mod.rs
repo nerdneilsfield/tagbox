@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use crate::services::TagBoxService;
+use crate::components::{ToastMessage, ToastType, create_toast};
 use tagbox_core::types::{self, SearchResult};
 
 #[derive(Clone)]
@@ -17,6 +18,7 @@ pub struct AppState {
     pub categories: Vec<Category>,
     pub is_loading: bool,
     pub error_message: Option<String>,
+    pub toast_messages: Vec<ToastMessage>,
 }
 
 impl AppState {
@@ -40,6 +42,7 @@ impl AppState {
             categories,
             is_loading: false,
             error_message: None,
+            toast_messages: Vec::new(),
         })
     }
     
@@ -73,6 +76,26 @@ impl AppState {
             self.search(&query).await?;
         }
         Ok(())
+    }
+    
+    /// 显示成功通知
+    pub fn show_success(&mut self, message: &str) {
+        self.toast_messages.push(create_toast(ToastType::Success, message));
+    }
+    
+    /// 显示错误通知
+    pub fn show_error(&mut self, message: &str) {
+        self.toast_messages.push(create_toast(ToastType::Error, message));
+    }
+    
+    /// 显示信息通知
+    pub fn show_info(&mut self, message: &str) {
+        self.toast_messages.push(create_toast(ToastType::Info, message));
+    }
+    
+    /// 显示警告通知
+    pub fn show_warning(&mut self, message: &str) {
+        self.toast_messages.push(create_toast(ToastType::Warning, message));
     }
     
     /// 从搜索结果构建分类树
@@ -124,6 +147,7 @@ impl Default for AppState {
             categories: vec![],
             is_loading: false,
             error_message: None,
+            toast_messages: Vec::new(),
         }
     }
 }
