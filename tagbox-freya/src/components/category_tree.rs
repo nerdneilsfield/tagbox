@@ -1,12 +1,61 @@
 use freya::prelude::*;
 use crate::state::{AppState, Category, FileEntry};
 
+#[component]
+fn ShowAllButton(total: usize) -> Element {
+    let mut app_state = use_context::<Signal<Option<AppState>>>();
+    let is_selected = app_state.read().as_ref()
+        .map(|s| s.selected_category.is_none())
+        .unwrap_or(true);
+    
+    rsx! {
+        rect {
+            width: "100%",
+            padding: "8 10",
+            background: if is_selected { "rgb(240, 240, 255)" } else { "transparent" },
+            corner_radius: "4",
+            margin: "0 0 5 0",
+            onclick: move |_| {
+                if let Some(state) = app_state.write().as_mut() {
+                    state.selected_category = None;
+                }
+            },
+            
+            rect {
+                direction: "horizontal",
+                spacing: "8",
+                content: "center start",
+                
+                label {
+                    font_size: "12",
+                    color: "rgb(150, 150, 150)",
+                    width: "16",
+                    "📁"
+                }
+                
+                label {
+                    font_size: "14",
+                    color: if is_selected { "rgb(80, 80, 255)" } else { "rgb(50, 50, 50)" },
+                    font_weight: if is_selected { "bold" } else { "normal" },
+                    "显示全部"
+                }
+                
+                label {
+                    font_size: "12",
+                    color: "rgb(150, 150, 150)",
+                    "({total})"
+                }
+            }
+        }
+    }
+}
+
 pub fn CategoryTree() -> Element {
     let app_state = use_context::<Signal<Option<AppState>>>();
     
-    let categories = match app_state.read().as_ref() {
-        Some(state) => state.categories.clone(),
-        None => vec![]
+    let (categories, total) = match app_state.read().as_ref() {
+        Some(state) => (state.categories.clone(), state.search_results.total_count),
+        None => (vec![], 0)
     };
     
     rsx! {
@@ -22,6 +71,12 @@ pub fn CategoryTree() -> Element {
                     "Categories"
                 }
                 
+                // "显示全部"选项
+                ShowAllButton {
+                    total: total
+                }
+                
+                // 分类列表
                 for category in categories {
                     CategoryNode {
                         key: "{category.id}",
@@ -36,10 +91,16 @@ pub fn CategoryTree() -> Element {
 
 #[component]
 fn CategoryNode(category: Category, level: u8) -> Element {
+    let mut app_state = use_context::<Signal<Option<AppState>>>();
     let mut expanded = use_signal(|| false);
     let has_children = !category.children.is_empty();
     let has_files = !category.files.is_empty();
     let indent = level * 20;
+    
+    let is_selected = app_state.read().as_ref()
+        .and_then(|s| s.selected_category.as_ref())
+        .map(|c| c == &category.id)
+        .unwrap_or(false);
     
     rsx! {
         rect {
@@ -53,9 +114,23 @@ fn CategoryNode(category: Category, level: u8) -> Element {
                 direction: "horizontal",
                 content: "center start",
                 spacing: "8",
+                background: if is_selected { "rgb(240, 240, 255)" } else { "transparent" },
+                corner_radius: "4",
                 onclick: move |_| {
                     if has_children || has_files {
+                        // 如果有子项，点击展开/折叠
                         expanded.toggle();
+                    }
+                    
+                    // 同时选择分类
+                    if let Some(state) = app_state.write().as_mut() {
+                        if state.selected_category == Some(category.id.clone()) {
+                            // 如果已选中，则取消选择
+                            state.selected_category = None;
+                        } else {
+                            // 否则选择这个分类
+                            state.selected_category = Some(category.id.clone());
+                        }
                     }
                 },
                 
@@ -74,7 +149,8 @@ fn CategoryNode(category: Category, level: u8) -> Element {
                 // 分类名称
                 label {
                     font_size: "14",
-                    color: "rgb(50, 50, 50)",
+                    color: if is_selected { "rgb(80, 80, 255)" } else { "rgb(50, 50, 50)" },
+                    font_weight: if is_selected { "bold" } else { "normal" },
                     "{category.name}"
                 }
                 

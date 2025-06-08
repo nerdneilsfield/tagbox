@@ -1,5 +1,4 @@
 use freya::prelude::*;
-use std::rc::Rc;
 use crate::pages::{ImportPage, EditPage};
 use crate::app::MainView;
 

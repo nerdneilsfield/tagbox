@@ -179,9 +179,7 @@ fn FileList() -> Element {
     let app_state = use_context::<Signal<Option<AppState>>>();
     
     let files = match app_state.read().as_ref() {
-        Some(state) => state.search_results.entries.iter()
-            .map(|e| e.clone().into())
-            .collect::<Vec<FileEntry>>(),
+        Some(state) => state.get_filtered_files(),
         None => vec![]
     };
     
