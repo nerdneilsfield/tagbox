@@ -86,7 +86,6 @@ pub fn SearchInput() -> Element {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     
     #[test]
     fn test_search_query_validation() {

@@ -101,7 +101,7 @@ pub fn App() -> Element {
 }
 
 pub fn MainView() -> Element {
-    let _app_state = use_context::<Signal<Option<AppState>>>();
+    let app_state = use_context::<Signal<Option<AppState>>>();
     
     rsx! {
         rect {
@@ -111,6 +111,20 @@ pub fn MainView() -> Element {
             
             // 顶部栏
             TopBar {}
+            
+            // 错误消息显示
+            if let Some(error) = app_state.read().as_ref().and_then(|s| s.error_message.as_ref()) {
+                rect {
+                    width: "100%",
+                    padding: "10 20",
+                    background: "rgb(255, 240, 240)",
+                    
+                    label {
+                        color: "rgb(200, 50, 50)",
+                        "{error}"
+                    }
+                }
+            }
             
             // 主内容区域
             rect {

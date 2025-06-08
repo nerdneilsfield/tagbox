@@ -1,21 +1,129 @@
 use freya::prelude::*;
 use crate::components::{DragDropArea, SelectedFileDisplay};
+use crate::state::AppState;
 use std::path::PathBuf;
+use futures::channel::mpsc::UnboundedReceiver;
+use futures::StreamExt;
+use tagbox_core::types::ImportMetadata;
 
 pub fn ImportPage() -> Element {
+    let mut app_state = use_context::<Signal<Option<AppState>>>();
     let mut selected_file = use_signal(|| None::<PathBuf>);
     let mut download_url = use_signal(|| String::new());
-    let title = use_signal(|| String::new());
-    let authors = use_signal(|| String::new());
+    let mut title = use_signal(|| String::new());
+    let mut authors = use_signal(|| String::new());
     let mut year = use_signal(|| String::new());
     let mut publisher = use_signal(|| String::new());
-    let tags = use_signal(|| String::new());
+    let mut tags = use_signal(|| String::new());
     let mut summary = use_signal(|| String::new());
-    let category1 = use_signal(|| String::new());
-    let category2 = use_signal(|| String::new());
-    let category3 = use_signal(|| String::new());
+    let mut category1 = use_signal(|| String::new());
+    let mut category2 = use_signal(|| String::new());
+    let mut category3 = use_signal(|| String::new());
+    let mut is_loading = use_signal(|| false);
+    let mut error_message = use_signal(|| None::<String>);
     
     let file_selected = selected_file.read().is_some();
+    
+    // 元数据提取协程
+    let extract_metadata_coroutine = use_coroutine(move |mut rx: UnboundedReceiver<PathBuf>| async move {
+        while let Some(path) = rx.next().await {
+            is_loading.set(true);
+            error_message.set(None);
+            
+            if let Some(state) = app_state.read().as_ref() {
+                match state.service.extract_metadata(&path).await {
+                    Ok(metadata) => {
+                        // 填充表单
+                        title.set(metadata.title);
+                        authors.set(metadata.authors.join(", "));
+                        if let Some(y) = metadata.year {
+                            year.set(y.to_string());
+                        }
+                        if let Some(p) = metadata.publisher {
+                            publisher.set(p);
+                        }
+                        tags.set(metadata.tags.join(", "));
+                        if let Some(s) = metadata.summary {
+                            summary.set(s);
+                        }
+                        category1.set(metadata.category1);
+                        if let Some(c2) = metadata.category2 {
+                            category2.set(c2);
+                        }
+                        if let Some(c3) = metadata.category3 {
+                            category3.set(c3);
+                        }
+                    }
+                    Err(e) => {
+                        error_message.set(Some(format!("元数据提取失败: {}", e)));
+                    }
+                }
+            }
+            
+            is_loading.set(false);
+        }
+    });
+    
+    // 文件导入协程
+    let import_file_coroutine = use_coroutine(move |mut rx: UnboundedReceiver<(PathBuf, bool)>| async move {
+        while let Some((path, _move_file)) = rx.next().await {
+            is_loading.set(true);
+            error_message.set(None);
+            
+            // 构建元数据
+            let metadata = ImportMetadata {
+                title: title.read().clone(),
+                authors: authors.read().split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
+                year: year.read().parse().ok(),
+                publisher: if publisher.read().is_empty() { None } else { Some(publisher.read().clone()) },
+                source: None,
+                category1: if category1.read().is_empty() { "未分类".to_string() } else { category1.read().clone() },
+                category2: if category2.read().is_empty() { None } else { Some(category2.read().clone()) },
+                category3: if category3.read().is_empty() { None } else { Some(category3.read().clone()) },
+                tags: tags.read().split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
+                summary: if summary.read().is_empty() { None } else { Some(summary.read().clone()) },
+                full_text: None,
+                additional_info: std::collections::HashMap::new(),
+                file_metadata: None,
+                type_metadata: None,
+            };
+            
+            // 执行导入
+            let import_result = if let Some(state) = app_state.read().as_ref() {
+                state.service.import_file(&path, Some(metadata)).await
+            } else {
+                Err(anyhow::anyhow!("应用状态未初始化"))
+            };
+            
+            match import_result {
+                Ok(_) => {
+                    // 导入成功，刷新文件列表
+                    if let Some(state) = app_state.write().as_mut() {
+                        let _ = state.search("*").await;
+                    }
+                    
+                    // 清空表单
+                    selected_file.set(None);
+                    title.set(String::new());
+                    authors.set(String::new());
+                    year.set(String::new());
+                    publisher.set(String::new());
+                    tags.set(String::new());
+                    summary.set(String::new());
+                    category1.set(String::new());
+                    category2.set(String::new());
+                    category3.set(String::new());
+                    
+                    tracing::info!("文件导入成功");
+                }
+                Err(e) => {
+                    error_message.set(Some(format!("文件导入失败: {}", e)));
+                }
+            }
+            
+            is_loading.set(false);
+        }
+    });
     
     rsx! {
         ScrollView {
@@ -30,6 +138,36 @@ pub fn ImportPage() -> Element {
                     font_size: "28",
                     font_weight: "bold",
                     "Import New File"
+                }
+                
+                // 错误消息显示
+                if let Some(error) = error_message.read().clone() {
+                    rect {
+                        width: "100%",
+                        padding: "15",
+                        background: "rgb(255, 240, 240)",
+                        corner_radius: "8",
+                        
+                        label {
+                            color: "rgb(200, 50, 50)",
+                            "{error}"
+                        }
+                    }
+                }
+                
+                // 加载指示器
+                if is_loading() {
+                    rect {
+                        width: "100%",
+                        padding: "15",
+                        background: "rgb(240, 240, 255)",
+                        corner_radius: "8",
+                        
+                        label {
+                            color: "rgb(50, 50, 200)",
+                            "处理中..."
+                        }
+                    }
                 }
                 
                 // 文件选择区域
@@ -236,8 +374,9 @@ pub fn ImportPage() -> Element {
                             
                             Button {
                                 onpress: move |_| {
-                                    // TODO: 提取元数据
-                                    tracing::info!("Extract metadata");
+                                    if let Some(path) = selected_file.read().clone() {
+                                        extract_metadata_coroutine.send(path);
+                                    }
                                 },
                                 
                                 label { "Extract Metadata" }
@@ -245,8 +384,9 @@ pub fn ImportPage() -> Element {
                             
                             Button {
                                 onpress: move |_| {
-                                    // TODO: 导入并移动文件
-                                    tracing::info!("Import and move file");
+                                    if let Some(path) = selected_file.read().clone() {
+                                        import_file_coroutine.send((path, true));
+                                    }
                                 },
                                 
                                 label { "Import and Move" }
@@ -254,8 +394,9 @@ pub fn ImportPage() -> Element {
                             
                             Button {
                                 onpress: move |_| {
-                                    // TODO: 导入但保留原文件
-                                    tracing::info!("Import and keep original");
+                                    if let Some(path) = selected_file.read().clone() {
+                                        import_file_coroutine.send((path, false));
+                                    }
                                 },
                                 
                                 label { "Import and Keep Original" }
