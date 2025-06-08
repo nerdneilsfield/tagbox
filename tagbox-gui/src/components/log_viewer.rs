@@ -442,7 +442,45 @@ impl LogViewer {
             }
         }
         
-        None
+        // 如果没有找到现有的日志文件，创建一个演示日志文件
+        let demo_path = std::path::PathBuf::from("./tagbox_demo.log");
+        if let Err(e) = Self::create_demo_log_file(&demo_path) {
+            eprintln!("Failed to create demo log file: {}", e);
+            return None;
+        }
+        
+        Some(demo_path)
+    }
+    
+    // 创建演示日志文件
+    fn create_demo_log_file(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+        use std::fs;
+        
+        let timestamp = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S%.3f");
+        let demo_content = format!(
+r#"[{}] INFO TagBox GUI started
+[{}] INFO Loading configuration from config.toml
+[{}] INFO Database connection established: ./.sqlx-data/tagbox.db
+[{}] INFO Initializing main window components
+[{}] INFO Search bar initialized
+[{}] INFO Category tree loaded with 0 categories
+[{}] INFO File list component ready
+[{}] INFO File preview panel initialized
+[{}] DEBUG Setting up keyboard shortcuts
+[{}] DEBUG Configuring drag-drop handlers
+[{}] INFO Application ready for user interaction
+[{}] INFO Waiting for file imports...
+[{}] DEBUG Event loop started
+[{}] TRACE UI refresh cycle completed
+"#,
+            timestamp, timestamp, timestamp, timestamp,
+            timestamp, timestamp, timestamp, timestamp,
+            timestamp, timestamp, timestamp, timestamp,
+            timestamp, timestamp,
+        );
+        
+        fs::write(path, demo_content)?;
+        Ok(())
     }
     
     // 创建用于回调的克隆

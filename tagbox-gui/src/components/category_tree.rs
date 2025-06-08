@@ -293,5 +293,39 @@ impl CategoryTree {
                 }
             }
         }
+        
+        // 刷新树显示以更新计数
+        self.refresh_tree_display();
+    }
+    
+    // 刷新树显示
+    fn refresh_tree_display(&mut self) {
+        self.tree.clear();
+        
+        // 添加"所有文件"根节点
+        let total_files = self.file_counts.values().sum::<i32>().max(1); // 避免重复计数，取最大值
+        self.tree.add(&format!("📁 All Files ({})", total_files));
+        
+        // 按分类添加节点，显示文件计数
+        let mut categories: Vec<_> = self.file_counts.iter().collect();
+        categories.sort_by_key(|(name, _)| name.as_str());
+        
+        for (category_name, count) in categories {
+            // 只显示一级分类，避免重复
+            if !category_name.contains('/') {
+                let icon = match category_name.as_str() {
+                    "Documents" => "📄",
+                    "Books" => "📚", 
+                    "Research" => "🔬",
+                    "Archive" => "📦",
+                    "Uncategorized" | "未分类" => "❓",
+                    _ => "📂",
+                };
+                
+                self.tree.add(&format!("{} {} ({})", icon, category_name, count));
+            }
+        }
+        
+        self.tree.redraw();
     }
 }

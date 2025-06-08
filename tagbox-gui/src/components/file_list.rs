@@ -303,45 +303,44 @@ impl FileList {
     
     // 显示右键上下文菜单
     fn show_context_menu(file_index: usize, sender: &Sender<AppEvent>) {
-        let mut menu = MenuButton::default();
-        let sender_open = sender.clone();
-        let sender_edit = sender.clone();
-        let sender_copy = sender.clone();
-        let sender_folder = sender.clone();
-        let sender_delete = sender.clone();
+        // 使用简单的弹出菜单
+        let choice = fltk::dialog::choice2_default(
+            &format!("File #{} - Select action:", file_index + 1),
+            "Open File",
+            "Edit Metadata", 
+            "More..."
+        );
         
-        menu.add_choice("📄 Open File");
-        menu.add_choice("✏️ Edit Metadata");
-        menu.add_choice("📋 Copy Path");
-        menu.add_choice("📁 Show in Folder");
-        menu.add_choice("➖ Remove");
-        
-        // 菜单选项处理
-        menu.set_callback(move |m| {
-            let choice = m.value();
-            match choice {
-                0 => { // Open File
-                    let _ = sender_open.send(AppEvent::OpenFile(format!("index:{}", file_index)));
-                },
-                1 => { // Edit Metadata
-                    let _ = sender_edit.send(AppEvent::EditFile(format!("index:{}", file_index)));
-                },
-                2 => { // Copy Path
-                    let _ = sender_copy.send(AppEvent::CopyFilePath(format!("index:{}", file_index)));
-                },
-                3 => { // Show in Folder
-                    let _ = sender_folder.send(AppEvent::ShowInFolder(format!("index:{}", file_index)));
-                },
-                4 => { // Remove
-                    if fltk::dialog::choice2_default("Remove this file from TagBox?", "Cancel", "Remove", "") == Some(1) {
-                        let _ = sender_delete.send(AppEvent::DeleteFile(format!("index:{}", file_index)));
-                    }
-                },
-                _ => {}
-            }
-        });
-        
-        // 显示菜单
-        menu.popup();
+        match choice {
+            Some(0) => { // Open File
+                let _ = sender.send(AppEvent::OpenFile(format!("index:{}", file_index)));
+            },
+            Some(1) => { // Edit Metadata
+                let _ = sender.send(AppEvent::EditFile(format!("index:{}", file_index)));
+            },
+            Some(2) => { // More options
+                let choice2 = fltk::dialog::choice2_default(
+                    "More actions:",
+                    "Copy Path",
+                    "Show in Folder",
+                    "Delete"
+                );
+                match choice2 {
+                    Some(0) => { // Copy Path
+                        let _ = sender.send(AppEvent::CopyFilePath(format!("index:{}", file_index)));
+                    },
+                    Some(1) => { // Show in Folder
+                        let _ = sender.send(AppEvent::ShowInFolder(format!("index:{}", file_index)));
+                    },
+                    Some(2) => { // Delete
+                        if fltk::dialog::choice2_default("Remove this file from TagBox?", "Cancel", "Remove", "") == Some(1) {
+                            let _ = sender.send(AppEvent::DeleteFile(format!("index:{}", file_index)));
+                        }
+                    },
+                    _ => {}
+                }
+            },
+            _ => {}
+        }
     }
 }

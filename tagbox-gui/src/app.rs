@@ -3,6 +3,7 @@ use tagbox_core::config::AppConfig;
 use crate::state::AppEvent;
 use crate::components::MainWindow;
 use crate::utils::AsyncBridge;
+use crate::themes::{ThemeManager, AppTheme};
 
 pub struct App {
     pub main_window: MainWindow,
@@ -10,15 +11,23 @@ pub struct App {
     pub async_bridge: AsyncBridge,
     pub config: AppConfig,
     pub editing_file_id: Option<String>, // 跟踪当前正在编辑的文件
+    pub theme_manager: ThemeManager,
 }
 
 impl App {
     pub fn new(config: AppConfig) -> Result<Self, Box<dyn std::error::Error>> {
+        // 首先初始化主题管理器并应用默认主题
+        let mut theme_manager = ThemeManager::new();
+        theme_manager.apply_theme(AppTheme::Light); // 使用浅色主题作为默认
+        
         let (main_window, event_receiver) = MainWindow::new(config.clone())?;
         
         // 从 main_window 获取 event_sender 来创建 async_bridge
         let event_sender = main_window.event_sender.clone();
         let async_bridge = AsyncBridge::with_sender(event_sender);
+        
+        // 应用文件管理器专用样式
+        theme_manager.apply_file_manager_styling();
         
         Ok(Self {
             main_window,
@@ -26,6 +35,7 @@ impl App {
             async_bridge,
             config,
             editing_file_id: None,
+            theme_manager,
         })
     }
     
