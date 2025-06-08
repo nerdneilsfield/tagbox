@@ -40,4 +40,11 @@ pub enum AppEvent {
     OpenSettings,
     OpenLogViewer,
     ShowStatistics,
+    OpenAdvancedSearch,
+    ShowAdvancedSearchDialog,
+    
+    // 键盘快捷键事件
+    FocusSearchBar,
+    EditSelectedFile,
+    DeleteSelectedFile,
 }

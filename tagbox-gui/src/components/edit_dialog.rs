@@ -162,6 +162,16 @@ impl EditDialog {
         button_flex.end();
         window.end();
         
+        // 为编辑对话框设置 Escape 键处理
+        let sender_escape = event_sender.clone();
+        window.set_callback(move |win| {
+            if fltk::app::event() == fltk::enums::Event::KeyDown 
+                && fltk::app::event_key() == fltk::enums::Key::Escape {
+                let _ = sender_escape.send(AppEvent::CancelEdit);
+                win.hide();
+            }
+        });
+        
         Self {
             window,
             file_id: None,

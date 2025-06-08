@@ -304,6 +304,45 @@ impl App {
                 // 更新状态栏
                 self.main_window.status_bar.set_temp_status("📄 Edit cancelled", 1500);
             }
+            AppEvent::FocusSearchBar => {
+                tracing::info!("Focusing search bar");
+                // 聚焦搜索栏
+                self.main_window.focus_search_bar();
+            }
+            AppEvent::EditSelectedFile => {
+                tracing::info!("Editing selected file");
+                // 编辑当前选中的文件
+                if let Some(selected_file) = self.main_window.get_selected_file() {
+                    self.editing_file_id = Some(selected_file.id.clone());
+                    self.async_bridge.spawn_open_edit_dialog(selected_file.id.clone(), self.config.clone());
+                } else {
+                    self.main_window.status_bar.set_temp_status("⚠️ No file selected", 2000);
+                }
+            }
+            AppEvent::DeleteSelectedFile => {
+                tracing::info!("Deleting selected file");
+                // 删除当前选中的文件
+                if let Some(selected_file) = self.main_window.get_selected_file() {
+                    // 显示确认对话框
+                    let choice = fltk::dialog::choice2_default(
+                        &format!("Are you sure you want to delete '{}'?", selected_file.title),
+                        "Yes",
+                        "No",
+                        ""
+                    );
+                    
+                    if choice == Some(0) {
+                        self.async_bridge.spawn_delete_file(selected_file.id.clone(), self.config.clone());
+                        self.main_window.status_bar.set_temp_status(&format!("🗑️ Deleting: {}", selected_file.title), 2000);
+                    }
+                } else {
+                    self.main_window.status_bar.set_temp_status("⚠️ No file selected", 2000);
+                }
+            }
+            AppEvent::OpenAdvancedSearch => {
+                tracing::info!("Opening advanced search dialog");
+                self.main_window.open_advanced_search_dialog();
+            }
             _ => {
                 tracing::debug!("Unhandled event: {:?}", event);
             }

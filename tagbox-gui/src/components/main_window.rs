@@ -2,14 +2,14 @@ use fltk::{
     prelude::*,
     window::Window,
     group::{Flex, FlexType},
-    enums::Color,
+    enums::{Color, Event, Key},
 };
 use std::sync::mpsc::{Receiver, Sender, channel};
 use tagbox_core::{config::AppConfig, types::FileEntry};
 use crate::state::{AppEvent, AppState};
 use crate::components::{
     SearchBar, CategoryTree, FilePreview, FileList, 
-    AppMenuBar, StatusBar, DragDropArea, EditDialog
+    AppMenuBar, StatusBar, DragDropArea, EditDialog, AdvancedSearchDialog
 };
 
 pub struct MainWindow {
@@ -26,6 +26,7 @@ pub struct MainWindow {
     pub file_preview: FilePreview,
     drag_drop_area: DragDropArea,
     pub edit_dialog: EditDialog,
+    pub advanced_search_dialog: AdvancedSearchDialog,
     
     // 布局容器
     main_container: Flex,
@@ -99,6 +100,12 @@ impl MainWindow {
         let mut edit_dialog = EditDialog::new(event_sender.clone());
         edit_dialog.set_callbacks();
         
+        // 创建高级搜索对话框
+        let advanced_search_dialog = AdvancedSearchDialog::new(event_sender.clone());
+        
+        // 设置键盘快捷键
+        Self::setup_keyboard_shortcuts(&mut window, event_sender.clone());
+        
         Ok((Self {
             window,
             menu_bar,
@@ -109,6 +116,7 @@ impl MainWindow {
             file_preview,
             drag_drop_area,
             edit_dialog,
+            advanced_search_dialog,
             main_container,
             state,
             event_sender,
@@ -391,6 +399,16 @@ impl MainWindow {
         // 日志查看器应该作为独立窗口运行
     }
     
+    // 打开高级搜索对话框
+    pub fn open_advanced_search_dialog(&mut self) {
+        // 直接显示对话框
+        self.advanced_search_dialog.show();
+        
+        // 更新状态栏
+        self.status_bar.set_temp_status("🔍 Opening advanced search...", 1500);
+    }
+    
+    
     // 显示统计信息对话框
     pub fn show_statistics_dialog(&mut self) {
         // 简单的统计信息显示
@@ -400,7 +418,17 @@ impl MainWindow {
             Selected File: {}\n\
             Current Query: \"{}\"\n\
             Database Path: {}\n\
-            Storage Path: {}",
+            Storage Path: {}\n\n\
+            Keyboard Shortcuts:\n\
+            Ctrl+N: Import files\n\
+            Ctrl+F: Focus search bar\n\
+            Ctrl+S: Save current file\n\
+            Ctrl+E: Edit selected file\n\
+            Delete: Delete selected file\n\
+            F5: Refresh view\n\
+            Ctrl+,: Open settings\n\
+            Ctrl+L: Open log viewer\n\
+            Escape: Cancel/Close",
             self.state.current_files.len(),
             self.state.selected_file.as_ref()
                 .map(|f| f.title.as_str())
@@ -536,5 +564,86 @@ impl MainWindow {
     // 更新状态栏（定期调用）
     pub fn update_status_bar(&mut self) {
         self.status_bar.update();
+    }
+    
+    // 聚焦搜索栏
+    pub fn focus_search_bar(&mut self) {
+        self.search_bar.focus();
+    }
+    
+    // 获取当前选中的文件
+    pub fn get_selected_file(&self) -> Option<&FileEntry> {
+        self.state.selected_file.as_ref()
+    }
+    
+    // 设置键盘快捷键
+    fn setup_keyboard_shortcuts(window: &mut Window, event_sender: Sender<AppEvent>) {
+        window.handle(move |_, event| {
+            match event {
+                Event::KeyDown => {
+                    let key = fltk::app::event_key();
+                    let ctrl_pressed = fltk::app::event_state().contains(fltk::enums::Shortcut::Ctrl);
+                    
+                    // 针对不同的键盘快捷键进行处理
+                    if ctrl_pressed {
+                        match key {
+                            // Ctrl+N: 导入文件
+                            key if key == Key::from_char('n') => {
+                                let _ = event_sender.send(AppEvent::FileImport(std::path::PathBuf::new()));
+                                return true;
+                            },
+                            // Ctrl+F: 聚焦搜索框
+                            key if key == Key::from_char('f') => {
+                                let _ = event_sender.send(AppEvent::FocusSearchBar);
+                                return true;
+                            },
+                            // Ctrl+S: 保存文件
+                            key if key == Key::from_char('s') => {
+                                let _ = event_sender.send(AppEvent::SaveFile);
+                                return true;
+                            },
+                            // Ctrl+E: 编辑选中文件
+                            key if key == Key::from_char('e') => {
+                                let _ = event_sender.send(AppEvent::EditSelectedFile);
+                                return true;
+                            },
+                            // Ctrl+,: 打开设置
+                            key if key == Key::from_char(',') => {
+                                let _ = event_sender.send(AppEvent::OpenSettings);
+                                return true;
+                            },
+                            // Ctrl+L: 打开日志查看器
+                            key if key == Key::from_char('l') => {
+                                let _ = event_sender.send(AppEvent::OpenLogViewer);
+                                return true;
+                            },
+                            _ => {}
+                        }
+                    } else {
+                        match key {
+                            // Delete: 删除选中文件
+                            Key::Delete => {
+                                let _ = event_sender.send(AppEvent::DeleteSelectedFile);
+                                return true;
+                            },
+                            // F5: 刷新
+                            Key::F5 => {
+                                let _ = event_sender.send(AppEvent::RefreshView);
+                                return true;
+                            },
+                            // Escape: 取消操作
+                            Key::Escape => {
+                                let _ = event_sender.send(AppEvent::CancelEdit);
+                                return true;
+                            },
+                            _ => {}
+                        }
+                    }
+                    
+                    false
+                },
+                _ => false,
+            }
+        });
     }
 }

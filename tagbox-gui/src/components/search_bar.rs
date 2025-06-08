@@ -72,9 +72,7 @@ impl SearchBar {
         advanced_btn.set_callback(move |_| {
             // 打开高级搜索对话框
             println!("Opening advanced search dialog...");
-            // TODO: 创建并显示高级搜索对话框
-            // let mut dialog = AdvancedSearchDialog::new(sender_clone.clone());
-            // dialog.show();
+            let _ = sender_clone.send(AppEvent::OpenAdvancedSearch);
         });
         
         Self {
@@ -202,5 +200,11 @@ impl SearchBar {
     // 获取搜索组件的引用（用于主窗口布局）
     pub fn widget(&mut self) -> &mut Input {
         &mut self.input
+    }
+    
+    // 聚焦搜索输入框
+    pub fn focus(&mut self) {
+        let _ = self.input.take_focus();
+        let _ = self.input.set_position(self.input.value().len() as i32);
     }
 }
