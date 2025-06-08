@@ -8,7 +8,6 @@ description = "Core library for TagBox file management system"
 [dependencies]
 # GUI 框架
 fltk = { version = "1.4", features = ["fltk-bundled"] }
-fltk-table = "0.3"
 fltk-theme = "0.7"
 
 # 异步运行时

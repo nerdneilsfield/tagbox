@@ -1,11 +1,11 @@
 use fltk::{
     prelude::*,
+    browser::MultiBrowser,
     enums::{Color, Event},
     group::Group,
     menu::MenuButton,
     app::MouseButton,
 };
-use fltk_table::{SmartTable, TableOpts};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use tagbox_core::types::{FileEntry, SearchResult};
@@ -13,7 +13,7 @@ use crate::state::AppEvent;
 
 pub struct FileList {
     container: Group,
-    table: SmartTable,
+    browser: MultiBrowser,
     files: Arc<Mutex<Vec<FileEntry>>>,
     selected_index: Option<usize>,
     event_sender: Sender<AppEvent>,
@@ -29,40 +29,18 @@ impl FileList {
     ) -> Self {
         let container = Group::new(x, y, w, h, None);
         
-        // 创建 SmartTable
-        let mut table = SmartTable::new(x, y, w, h, None);
+        // 使用 MultiBrowser 作为表格的替代方案
+        let mut browser = MultiBrowser::new(x, y, w, h, None);
+        browser.set_color(Color::White);
+        browser.set_selection_color(Color::from_rgb(230, 240, 255));
+        browser.set_text_size(12);
         
-        // 设置表格选项 - 初始化时至少需要1行以避免header错误
-        let opts = TableOpts {
-            rows: 1,  // 初始至少1行
-            cols: 5,  // Title, Authors, Year, Tags, Category
-            editable: false,
-            ..Default::default()
-        };
-        table.set_opts(opts);
-        
-        // 启用列标题
-        table.set_col_header(true);
-        table.set_row_header(false);
-        
-        // 设置列标题 - 现在安全了
-        table.set_col_header_value(0, "Title");
-        table.set_col_header_value(1, "Authors");
-        table.set_col_header_value(2, "Year");
-        table.set_col_header_value(3, "Tags");
-        table.set_col_header_value(4, "Category");
-        
-        // 设置列宽
-        table.set_col_width(0, 300); // Title
-        table.set_col_width(1, 200); // Authors
-        table.set_col_width(2, 60);  // Year
-        table.set_col_width(3, 150); // Tags
-        table.set_col_width(4, 150); // Category
-        
-        // 设置表格样式
-        table.set_col_header_height(25);
-        table.set_row_height_all(25);
-        table.set_selection_color(Color::from_rgb(230, 240, 255));
+        // 添加表头
+        let header = format!("{:<40} {:<25} {:<6} {:<20} {:<15}", 
+            "Title", "Authors", "Year", "Tags", "Category");
+        browser.add(&header);
+        browser.set_format_char('@');
+        browser.add("@-");  // 添加分隔线
         
         container.end();
         
@@ -70,7 +48,7 @@ impl FileList {
         
         let mut file_list = Self {
             container,
-            table,
+            browser,
             files,
             selected_index: None,
             event_sender,
@@ -83,35 +61,31 @@ impl FileList {
     fn setup_callbacks(&mut self) {
         let sender = self.event_sender.clone();
         let sender_menu = self.event_sender.clone();
-        let files_ref = Arc::clone(&self.files);
         
         // 选择回调
-        self.table.set_callback(move |table| {
-            let (row, _, _, _) = table.get_selection();
-            
-            if row >= 0 {
-                let _ = sender.send(AppEvent::FileSelected(format!("index:{}", row)));
+        self.browser.set_callback(move |browser| {
+            let selected = browser.value();
+            // 跳过表头（前2行）
+            if selected > 2 {
+                let _ = sender.send(AppEvent::FileSelected(format!("index:{}", selected - 3)));
             }
         });
         
         // 右键菜单处理
         let files_ref_menu = Arc::clone(&self.files);
-        self.table.handle(move |table, event| {
+        self.browser.handle(move |browser, event| {
             match event {
                 Event::Push => {
                     if fltk::app::event_mouse_button() == MouseButton::Right {
-                        // 获取鼠标位置对应的行
-                        let mouse_y = fltk::app::event_y() - table.y();
-                        let row = mouse_y / table.row_height(0);
-                        
-                        let files = files_ref_menu.lock().unwrap();
-                        if row >= 0 && (row as usize) < files.len() {
-                            // 选中该行
-                            table.set_selection(row, 0, row, 4);
-                            table.redraw();
-                            
-                            // 显示右键菜单
-                            Self::show_context_menu(row as usize, &sender_menu);
+                        let selected = browser.value();
+                        // 跳过表头
+                        if selected > 2 {
+                            let files = files_ref_menu.lock().unwrap();
+                            let file_index = (selected - 3) as usize;
+                            if file_index < files.len() {
+                                // 显示右键菜单
+                                Self::show_context_menu(file_index, &sender_menu);
+                            }
                         }
                         true
                     } else {
@@ -127,25 +101,26 @@ impl FileList {
         let mut files = self.files.lock().unwrap();
         *files = search_result.entries;
         
+        // 清空浏览器（保留表头）
+        self.browser.clear();
+        
+        // 重新添加表头
+        let header = format!("{:<40} {:<25} {:<6} {:<20} {:<15}", 
+            "Title", "Authors", "Year", "Tags", "Category");
+        self.browser.add(&header);
+        self.browser.add("@-");  // 分隔线
+        
         if files.is_empty() {
-            // 如果没有文件，保持1行显示提示信息
-            self.table.set_rows(1);
-            self.table.set_cell_value(0, 0, "No files found. Try a different search or import some files.");
-            for col in 1..5 {
-                self.table.set_cell_value(0, col, "");
-            }
-            self.table.deactivate();
+            self.browser.add("No files found. Try a different search or import some files.");
+            self.browser.deactivate();
             return Ok(());
         }
         
-        // 更新表格行数为实际文件数
-        self.table.set_rows(files.len() as i32);
+        // 激活浏览器
+        self.browser.activate();
         
-        // 激活表格
-        self.table.activate();
-        
-        // 填充表格数据
-        for (row, file) in files.iter().enumerate() {
+        // 添加文件数据
+        for file in files.iter() {
             // Title
             let display_title = if file.title.is_empty() {
                 &file.original_filename
@@ -153,7 +128,6 @@ impl FileList {
                 &file.title
             };
             let title = Self::truncate_string(display_title, 40);
-            self.table.set_cell_value(row as i32, 0, &title);
             
             // Authors
             let authors_str = if file.authors.is_empty() {
@@ -161,11 +135,9 @@ impl FileList {
             } else {
                 Self::truncate_string(&file.authors.join(", "), 25)
             };
-            self.table.set_cell_value(row as i32, 1, &authors_str);
             
             // Year
             let year_str = file.year.map(|y| y.to_string()).unwrap_or_else(|| "----".to_string());
-            self.table.set_cell_value(row as i32, 2, &year_str);
             
             // Tags
             let tags_str = match file.tags.len() {
@@ -173,19 +145,22 @@ impl FileList {
                 1 => file.tags[0].clone(),
                 n => format!("{} tags", n),
             };
-            self.table.set_cell_value(row as i32, 3, &tags_str);
             
             // Category
             let category_str = if file.category1.is_empty() {
                 "Uncategorized".to_string()
             } else {
-                file.category1.clone()
+                Self::truncate_string(&file.category1, 15)
             };
-            self.table.set_cell_value(row as i32, 4, &category_str);
+            
+            // 格式化行数据
+            let line = format!("{:<40} {:<25} {:<6} {:<20} {:<15}", 
+                title, authors_str, year_str, tags_str, category_str);
+            
+            self.browser.add(&line);
         }
         
-        self.table.redraw();
-        println!("Loaded {} files into table", files.len());
+        println!("Loaded {} files into file list", files.len());
         Ok(())
     }
     
@@ -202,25 +177,22 @@ impl FileList {
         let mut files = self.files.lock().unwrap();
         files.clear();
         self.selected_index = None;
-        // 保持至少1行以避免panic
-        self.table.set_rows(1);
-        self.table.set_cell_value(0, 0, "");
-        for col in 1..5 {
-            self.table.set_cell_value(0, col, "");
-        }
-        self.table.redraw();
+        self.browser.clear();
+        
+        // 重新添加表头
+        let header = format!("{:<40} {:<25} {:<6} {:<20} {:<15}", 
+            "Title", "Authors", "Year", "Tags", "Category");
+        self.browser.add(&header);
+        self.browser.add("@-");
     }
     
     pub fn get_selected_file(&self) -> Option<FileEntry> {
-        let (row, _, _, _) = self.table.get_selection();
-        if row >= 0 {
+        let selected = self.browser.value();
+        if selected > 2 {  // 跳过表头
             let files = self.files.lock().unwrap();
-            files.get(row as usize).cloned()
+            files.get((selected - 3) as usize).cloned()
         } else {
-            self.selected_index.and_then(|index| {
-                let files = self.files.lock().unwrap();
-                files.get(index).cloned()
-            })
+            None
         }
     }
     
@@ -229,8 +201,7 @@ impl FileList {
         for (index, file) in files.iter().enumerate() {
             if file.id == file_id {
                 self.selected_index = Some(index);
-                self.table.set_selection(index as i32, 0, index as i32, 4);
-                self.table.redraw();
+                self.browser.select(index as i32 + 3); // +3 跳过表头
                 println!("Selected file: {} (index: {})", file.title, index);
                 break;
             }
@@ -242,8 +213,7 @@ impl FileList {
         let files = self.files.lock().unwrap();
         if index < files.len() {
             self.selected_index = Some(index);
-            self.table.set_selection(index as i32, 0, index as i32, 4);
-            self.table.redraw();
+            self.browser.select(index as i32 + 3); // +3 跳过表头
             if let Some(file) = files.get(index) {
                 println!("Selected file by index: {} (index: {})", file.title, index);
             }
@@ -252,13 +222,7 @@ impl FileList {
     
     // 获取当前选中的文件
     pub fn get_current_selection(&self) -> Option<FileEntry> {
-        let (row, _, _, _) = self.table.get_selection();
-        if row >= 0 {
-            let files = self.files.lock().unwrap();
-            files.get(row as usize).cloned()
-        } else {
-            None
-        }
+        self.get_selected_file()
     }
     
     // 获取当前文件列表
@@ -268,14 +232,14 @@ impl FileList {
     }
     
     pub fn refresh(&mut self) {
-        self.table.redraw();
+        self.browser.redraw();
     }
     
     pub fn set_loading(&mut self, loading: bool) {
         if loading {
-            self.table.deactivate();
+            self.browser.deactivate();
         } else {
-            self.table.activate();
+            self.browser.activate();
         }
     }
     
@@ -292,15 +256,12 @@ impl FileList {
     // 显示拖拽提示
     pub fn show_drag_hint(&mut self, show: bool) {
         if show {
-            self.table.set_rows(1);
-            self.table.set_cell_value(0, 0, "Drag files here to import...");
-            for col in 1..5 {
-                self.table.set_cell_value(0, col, "");
-            }
+            self.clear();
+            self.browser.add("Drag files here to import...");
         } else {
             self.clear();
         }
-        self.table.redraw();
+        self.browser.redraw();
     }
     
     // 显示真正的右键上下文菜单
