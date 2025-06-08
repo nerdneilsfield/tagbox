@@ -33,6 +33,7 @@ pub enum AppEvent {
     LoadingStart,
     LoadingEnd,
     Error(String),
+    ConfigUpdated(PathBuf), // 配置文件已更新
     
     // UI 事件
     WindowResize(i32, i32),

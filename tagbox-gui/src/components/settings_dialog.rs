@@ -422,11 +422,21 @@ impl SettingsDialog {
         {
             let sender = self.event_sender.clone();
             let mut output = self.config_path_output.clone();
+            let mut dialog = self.clone_for_callback();
             self.browse_config_btn.set_callback(move |_| {
                 if let Some(path) = Self::browse_config_file() {
                     output.set_value(&path.to_string_lossy());
-                    // TODO: 加载选中的配置文件
-                    println!("Selected config file: {}", path.display());
+                    
+                    // 立即加载选中的配置文件
+                    if let Err(e) = dialog.load_config_file(&path) {
+                        eprintln!("Failed to load config file: {}", e);
+                        fltk::dialog::alert_default(&format!("Failed to load config file: {}", e));
+                    } else {
+                        println!("Loaded config file: {}", path.display());
+                        
+                        // 发送配置更新事件
+                        let _ = sender.send(AppEvent::ConfigUpdated(path.clone()));
+                    }
                 }
             });
         }
@@ -590,6 +600,24 @@ impl SettingsDialog {
         self.enable_fts_checkbox.set_checked(true);
         self.max_results_input.set_value("1000");
         self.modified = true;
+    }
+    
+    fn load_config_file(&mut self, path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+        // 使用 tagbox_core 加载配置
+        let rt = tokio::runtime::Runtime::new()?;
+        let config = rt.block_on(async {
+            tagbox_core::load_config(path).await
+        })?;
+        
+        // 更新当前配置
+        self.current_config = Some(config.clone());
+        self.config_path = Some(path.clone());
+        
+        // 更新界面显示
+        self.load_config(config, Some(path.clone()));
+        
+        println!("Config loaded from: {}", path.display());
+        Ok(())
     }
     
     fn browse_config_file() -> Option<PathBuf> {

@@ -55,7 +55,6 @@ impl FileList {
         self.browser.set_callback(move |browser| {
             let selected = browser.value();
             if selected > 0 {
-                // 为了简化起见，我们发送选中的索引，然后在主窗口中处理
                 let _ = sender.send(AppEvent::FileSelected(format!("index:{}", selected - 1)));
             }
         });
@@ -67,7 +66,7 @@ impl FileList {
                     if fltk::app::event_mouse_button() == MouseButton::Right {
                         let selected = browser.value();
                         if selected > 0 {
-                            // 显示右键菜单
+                            // 显示真正的右键菜单
                             Self::show_context_menu((selected - 1) as usize, &sender_menu);
                         }
                         true
@@ -87,7 +86,6 @@ impl FileList {
         self.browser.clear();
         
         if self.files.is_empty() {
-            // 显示空状态提示
             self.browser.add("No files found. Try a different search or import some files.");
             self.browser.deactivate();
             return Ok(());
@@ -96,7 +94,7 @@ impl FileList {
         // 激活浏览器
         self.browser.activate();
         
-        // 添加文件到浏览器，使用改进的格式
+        // 添加文件到浏览器，使用表格样式格式
         for (index, file) in self.files.iter().enumerate() {
             let display_title = if file.title.is_empty() {
                 &file.original_filename
@@ -104,7 +102,6 @@ impl FileList {
                 &file.title
             };
             
-            // 限制标题长度以保持格式整洁（按字符数而不是字节数）
             let title = if display_title.chars().count() > 40 {
                 let truncated: String = display_title.chars().take(37).collect();
                 format!("{}...", truncated)
@@ -135,7 +132,7 @@ impl FileList {
                 format!("{} tags", tags_count)
             };
             
-            // 使用固定宽度格式，增加可读性
+            // 使用表格样式的固定宽度格式
             let line = format!("{:3}: {:40} | {:25} | {:4} | {}", 
                 index + 1, title, authors_str, year_str, tags_str);
             
@@ -301,43 +298,44 @@ impl FileList {
         self.browser.redraw();
     }
     
-    // 显示右键上下文菜单
+    // 显示真正的右键上下文菜单
     fn show_context_menu(file_index: usize, sender: &Sender<AppEvent>) {
-        // 使用简单的弹出菜单
-        let choice = fltk::dialog::choice2_default(
-            &format!("File #{} - Select action:", file_index + 1),
-            "Open File",
-            "Edit Metadata", 
-            "More..."
-        );
+        use fltk::menu::*;
+        
+        let mut menu = MenuButton::default();
+        menu.set_pos(fltk::app::event_x(), fltk::app::event_y());
+        
+        let sender_open = sender.clone();
+        let sender_edit = sender.clone();
+        let sender_copy = sender.clone();
+        let sender_folder = sender.clone();
+        let sender_delete = sender.clone();
+        
+        // 创建菜单项
+        menu.add_choice("📄 Open File");
+        menu.add_choice("✏️ Edit Metadata");
+        menu.add_choice("📋 Copy Path");
+        menu.add_choice("📁 Show in Folder");
+        menu.add_choice("🗑️ Delete");
+        
+        let choice = menu.popup().map(|item| item.value() as usize);
         
         match choice {
             Some(0) => { // Open File
-                let _ = sender.send(AppEvent::OpenFile(format!("index:{}", file_index)));
+                let _ = sender_open.send(AppEvent::OpenFile(format!("index:{}", file_index)));
             },
             Some(1) => { // Edit Metadata
-                let _ = sender.send(AppEvent::EditFile(format!("index:{}", file_index)));
+                let _ = sender_edit.send(AppEvent::EditFile(format!("index:{}", file_index)));
             },
-            Some(2) => { // More options
-                let choice2 = fltk::dialog::choice2_default(
-                    "More actions:",
-                    "Copy Path",
-                    "Show in Folder",
-                    "Delete"
-                );
-                match choice2 {
-                    Some(0) => { // Copy Path
-                        let _ = sender.send(AppEvent::CopyFilePath(format!("index:{}", file_index)));
-                    },
-                    Some(1) => { // Show in Folder
-                        let _ = sender.send(AppEvent::ShowInFolder(format!("index:{}", file_index)));
-                    },
-                    Some(2) => { // Delete
-                        if fltk::dialog::choice2_default("Remove this file from TagBox?", "Cancel", "Remove", "") == Some(1) {
-                            let _ = sender.send(AppEvent::DeleteFile(format!("index:{}", file_index)));
-                        }
-                    },
-                    _ => {}
+            Some(2) => { // Copy Path
+                let _ = sender_copy.send(AppEvent::CopyFilePath(format!("index:{}", file_index)));
+            },
+            Some(3) => { // Show in Folder
+                let _ = sender_folder.send(AppEvent::ShowInFolder(format!("index:{}", file_index)));
+            },
+            Some(4) => { // Delete
+                if fltk::dialog::choice2_default("Remove this file from TagBox?", "Cancel", "Remove", "") == Some(1) {
+                    let _ = sender_delete.send(AppEvent::DeleteFile(format!("index:{}", file_index)));
                 }
             },
             _ => {}

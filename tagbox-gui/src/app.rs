@@ -375,6 +375,28 @@ impl App {
                 // 刷新分类树
                 let _ = self.main_window.event_sender.send(AppEvent::RefreshView);
             }
+            AppEvent::ConfigUpdated(config_path) => {
+                tracing::info!("Config updated: {}", config_path.display());
+                
+                // 重新加载配置
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                match rt.block_on(async { tagbox_core::load_config(&config_path).await }) {
+                    Ok(new_config) => {
+                        self.config = new_config;
+                        self.main_window.status_bar.set_temp_status(&format!("✅ Config loaded: {}", config_path.file_name().unwrap_or_default().to_string_lossy()), 3000);
+                        
+                        // 刷新视图以应用新配置
+                        let _ = self.main_window.event_sender.send(AppEvent::RefreshView);
+                        
+                        tracing::info!("Successfully reloaded config from: {}", config_path.display());
+                    },
+                    Err(e) => {
+                        let error_msg = format!("Failed to reload config: {}", e);
+                        tracing::error!("{}", error_msg);
+                        self.main_window.status_bar.set_temp_status(&format!("❌ {}", error_msg), 5000);
+                    }
+                }
+            }
             _ => {
                 tracing::debug!("Unhandled event: {:?}", event);
             }

@@ -1,7 +1,8 @@
 use fltk::{
     prelude::*,
     tree::Tree,
-    enums::Color,
+    enums::{Color, Event},
+    app::MouseButton,
 };
 use std::sync::mpsc::Sender;
 use std::collections::{HashMap, BTreeMap, BTreeSet};
@@ -190,7 +191,9 @@ impl CategoryTree {
     // 设置回调函数
     fn setup_callbacks(&mut self) {
         let sender = self.event_sender.clone();
+        let sender_menu = self.event_sender.clone();
         
+        // 左键点击回调
         self.tree.set_callback(move |tree| {
             if let Some(selected_items) = tree.get_selected_items() {
                 if let Some(selected_item) = selected_items.first() {
@@ -207,6 +210,29 @@ impl CategoryTree {
                         let _ = sender.send(AppEvent::CategorySelect(category_path));
                     }
                 }
+            }
+        });
+        
+        // 右键菜单处理
+        self.tree.handle(move |tree, event| {
+            match event {
+                Event::Push => {
+                    if fltk::app::event_mouse_button() == MouseButton::Right {
+                        if let Some(selected_items) = tree.get_selected_items() {
+                            if let Some(selected_item) = selected_items.first() {
+                                let label = selected_item.label().unwrap_or_default();
+                                let category_path = Self::parse_category_from_label(&label);
+                                
+                                // 显示分类右键菜单
+                                Self::show_category_context_menu(&category_path, &sender_menu);
+                            }
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                },
+                _ => false,
             }
         });
     }
@@ -327,5 +353,121 @@ impl CategoryTree {
         }
         
         self.tree.redraw();
+    }
+    
+    // 显示分类右键菜单
+    fn show_category_context_menu(category_path: &str, sender: &Sender<AppEvent>) {
+        use fltk::menu::*;
+        
+        let mut menu = MenuButton::default();
+        menu.set_pos(fltk::app::event_x(), fltk::app::event_y());
+        
+        let sender_search = sender.clone();
+        let sender_new = sender.clone();
+        let sender_edit = sender.clone();
+        let sender_delete = sender.clone();
+        
+        // 根据分类类型创建不同的菜单项
+        if category_path == "All Files" {
+            // 全部文件的菜单
+            menu.add_choice("📁 Show All Files");
+            menu.add_choice("➕ Create New Category");
+            menu.add_choice("🔄 Refresh Categories");
+        } else {
+            // 特定分类的菜单
+            menu.add_choice(&format!("📂 View Files in '{}'", category_path));
+            menu.add_choice(&format!("➕ Add Subcategory to '{}'", category_path));
+            menu.add_choice(&format!("✏️ Rename '{}'", category_path));
+            menu.add_choice(&format!("🗑️ Delete '{}'", category_path));
+            menu.add_choice("🔄 Refresh");
+        }
+        
+        let choice = menu.popup().map(|item| item.value() as usize);
+        let category_owned = category_path.to_string();
+        
+        if category_path == "All Files" {
+            match choice {
+                Some(0) => { // Show All Files
+                    let _ = sender_search.send(AppEvent::SearchQuery("".to_string()));
+                },
+                Some(1) => { // Create New Category
+                    Self::create_new_category(sender_new);
+                },
+                Some(2) => { // Refresh Categories
+                    let _ = sender.send(AppEvent::RefreshView);
+                },
+                _ => {}
+            }
+        } else {
+            match choice {
+                Some(0) => { // View Files
+                    let _ = sender_search.send(AppEvent::CategorySelect(category_owned));
+                },
+                Some(1) => { // Add Subcategory
+                    Self::add_subcategory(&category_owned, sender_new);
+                },
+                Some(2) => { // Rename Category
+                    Self::rename_category(&category_owned, sender_edit);
+                },
+                Some(3) => { // Delete Category
+                    Self::delete_category(&category_owned, sender_delete);
+                },
+                Some(4) => { // Refresh
+                    let _ = sender.send(AppEvent::RefreshView);
+                },
+                _ => {}
+            }
+        }
+    }
+    
+    // 创建新分类
+    fn create_new_category(sender: Sender<AppEvent>) {
+        let category_name = fltk::dialog::input_default("Create New Category", "Category Name:");
+        if let Some(name) = category_name {
+            if !name.trim().is_empty() {
+                let _ = sender.send(AppEvent::CategoryCreated(name.trim().to_string()));
+            }
+        }
+    }
+    
+    // 添加子分类
+    fn add_subcategory(parent_category: &str, sender: Sender<AppEvent>) {
+        let subcategory_name = fltk::dialog::input_default(
+            &format!("Add Subcategory to '{}'", parent_category), 
+            "Subcategory Name:"
+        );
+        if let Some(name) = subcategory_name {
+            if !name.trim().is_empty() {
+                let full_path = format!("{}/{}", parent_category, name.trim());
+                let _ = sender.send(AppEvent::CategoryCreated(full_path));
+            }
+        }
+    }
+    
+    // 重命名分类
+    fn rename_category(category_path: &str, sender: Sender<AppEvent>) {
+        let new_name = fltk::dialog::input_default(
+            &format!("Rename Category '{}'", category_path),
+            "New Name:"
+        );
+        if let Some(name) = new_name {
+            if !name.trim().is_empty() && name.trim() != category_path {
+                let _ = sender.send(AppEvent::CategoryUpdated(format!("{}:{}", category_path, name.trim())));
+            }
+        }
+    }
+    
+    // 删除分类
+    fn delete_category(category_path: &str, sender: Sender<AppEvent>) {
+        let choice = fltk::dialog::choice2_default(
+            &format!("Are you sure you want to delete category '{}'?\nFiles in this category will be moved to 'Uncategorized'.", category_path),
+            "Cancel",
+            "Delete",
+            ""
+        );
+        
+        if choice == Some(1) {
+            let _ = sender.send(AppEvent::CategoryDeleted(category_path.to_string()));
+        }
     }
 }
