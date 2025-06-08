@@ -1010,15 +1010,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fltk-table"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6394b172c2c9a17186e0c13dcd02e39797e0fdc071506c33b2bc53993df84b56"
-dependencies = [
- "fltk",
-]
-
-[[package]]
 name = "fltk-theme"
 version = "0.7.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3481,7 +3472,6 @@ dependencies = [
  "clipboard",
  "dirs",
  "fltk",
- "fltk-table",
  "fltk-theme",
  "futures",
  "serde",

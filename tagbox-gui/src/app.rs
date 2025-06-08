@@ -87,11 +87,24 @@ impl App {
                     self.main_window.status_bar.set_temp_status(&format!("✅ Found {} results", result.entries.len()), 2000);
                 }
             }
-            AppEvent::FileSelected(file_id) => {
-                tracing::info!("File selected: {}", file_id);
-                self.main_window.select_file(file_id.clone());
-                // 异步加载文件详情
-                self.async_bridge.spawn_load_file(file_id, self.config.clone());
+            AppEvent::FileSelected(file_ref) => {
+                tracing::info!("File selected: {}", file_ref);
+                // 获取实际的文件
+                if let Some(file) = self.get_file_by_ref(&file_ref) {
+                    let file_id = file.id.clone();
+                    let file_title = file.title.clone();
+                    
+                    // 选中文件
+                    self.main_window.select_file(file_id.clone());
+                    
+                    // 使用实际的文件ID加载详情
+                    self.async_bridge.spawn_load_file(file_id, self.config.clone());
+                    
+                    // 更新状态栏
+                    self.main_window.status_bar.set_temp_status(&format!("📄 Selected: {}", file_title), 1500);
+                } else {
+                    tracing::warn!("Invalid file reference: {}", file_ref);
+                }
             }
             AppEvent::FileImport(path) => {
                 tracing::info!("Importing file: {}", path.display());
@@ -405,16 +418,19 @@ impl App {
     }
     
     // 辅助方法：根据文件引用获取文件
-    fn get_file_by_ref(&self, file_ref: &str) -> Option<&tagbox_core::types::FileEntry> {
+    fn get_file_by_ref(&self, file_ref: &str) -> Option<tagbox_core::types::FileEntry> {
         if file_ref.starts_with("index:") {
             if let Ok(index) = file_ref.strip_prefix("index:").unwrap().parse::<usize>() {
-                self.main_window.get_current_files().get(index)
+                // 从FileList组件获取当前文件列表
+                let files = self.main_window.get_file_list_files();
+                files.get(index).cloned()
             } else {
                 None
             }
         } else {
             // 按ID查找
-            self.main_window.get_current_files().iter().find(|f| f.id == file_ref)
+            let files = self.main_window.get_file_list_files();
+            files.iter().find(|f| f.id == file_ref).cloned()
         }
     }
 }

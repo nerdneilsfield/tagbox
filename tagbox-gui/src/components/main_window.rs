@@ -584,6 +584,11 @@ impl MainWindow {
         &self.state.current_files
     }
     
+    // 从FileList组件获取当前文件列表
+    pub fn get_file_list_files(&self) -> Vec<tagbox_core::types::FileEntry> {
+        self.file_list.get_current_files()
+    }
+    
     // 更新状态栏（定期调用）
     pub fn update_status_bar(&mut self) {
         self.status_bar.update();
