@@ -1,6 +1,6 @@
 use crate::cli::DbCommands;
 use anyhow::{Context, Result};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tagbox_core::schema::Database;
 use tokio::fs::{self, File};
 

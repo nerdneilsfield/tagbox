@@ -1,5 +1,4 @@
 use crate::utils::error::Result;
-use colored::*;
 use serde_json::Value;
 use tabled::{
     builder::Builder,

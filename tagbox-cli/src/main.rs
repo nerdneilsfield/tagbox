@@ -8,7 +8,7 @@ mod commands;
 mod output;
 mod utils;
 
-use cli::{AuthorCommands, Cli, Commands, ConfigCommands, DbCommands};
+use cli::{AuthorCommands, Cli, Commands, ConfigCommands};
 use utils::{config, error::CliError};
 
 #[tokio::main]
