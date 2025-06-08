@@ -1,20 +1,19 @@
 use freya::prelude::*;
-use crate::state::AppState;
 use crate::components::{DragDropArea, SelectedFileDisplay};
 use std::path::PathBuf;
 
 pub fn ImportPage() -> Element {
     let mut selected_file = use_signal(|| None::<PathBuf>);
     let mut download_url = use_signal(|| String::new());
-    let mut title = use_signal(|| String::new());
-    let mut authors = use_signal(|| String::new());
+    let title = use_signal(|| String::new());
+    let authors = use_signal(|| String::new());
     let mut year = use_signal(|| String::new());
     let mut publisher = use_signal(|| String::new());
-    let mut tags = use_signal(|| String::new());
+    let tags = use_signal(|| String::new());
     let mut summary = use_signal(|| String::new());
-    let mut category1 = use_signal(|| String::new());
-    let mut category2 = use_signal(|| String::new());
-    let mut category3 = use_signal(|| String::new());
+    let category1 = use_signal(|| String::new());
+    let category2 = use_signal(|| String::new());
+    let category3 = use_signal(|| String::new());
     
     let file_selected = selected_file.read().is_some();
     

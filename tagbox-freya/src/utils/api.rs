@@ -16,7 +16,7 @@ pub struct TagBoxApi {
 impl TagBoxApi {
     /// 创建新的 API 实例
     pub async fn new(config_path: Option<PathBuf>) -> Result<Self> {
-        let config = if let Some(path) = config_path {
+        let config = if let Some(_path) = config_path {
             // 暂时使用默认配置，避免异步文件读取的复杂性
             AppConfig::default()
         } else {

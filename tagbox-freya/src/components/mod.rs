@@ -10,4 +10,4 @@ pub use category_tree::CategoryTree;
 pub use file_preview::FilePreview;
 pub use search_input::SearchInput;
 pub use advanced_search::AdvancedSearchModal;
-pub use drag_drop::{DragDropArea, FileSelectButton, SelectedFileDisplay};
+pub use drag_drop::{DragDropArea, SelectedFileDisplay};

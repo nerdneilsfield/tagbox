@@ -3,16 +3,20 @@ use crate::state::{AppState, FileEntry};
 
 #[component]
 pub fn EditPage(file_id: String) -> Element {
-    let app_state = use_context::<Signal<AppState>>();
+    let app_state = use_context::<Signal<Option<AppState>>>();
     
     // 查找要编辑的文件
-    let file = app_state.read().files.iter()
-        .find(|f| f.id == file_id)
-        .cloned();
+    let file: Option<FileEntry> = app_state.read().as_ref()
+        .and_then(|state| {
+            state.search_results.entries.iter()
+                .find(|f| f.id.to_string() == file_id)
+                .cloned()
+                .map(|f| f.into())
+        });
     
     match file {
         Some(file) => {
-            let mut title = use_signal(|| file.title.clone());
+            let title = use_signal(|| file.title.clone());
             let authors = use_signal(|| file.authors.join(", "));
             let tags = use_signal(|| file.tags.join(", "));
             let mut summary = use_signal(|| file.summary.clone().unwrap_or_default());

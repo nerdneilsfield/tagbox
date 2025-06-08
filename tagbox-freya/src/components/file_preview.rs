@@ -4,9 +4,10 @@ use crate::router::Route;
 use crate::utils::clipboard::copy_to_clipboard;
 
 pub fn FilePreview() -> Element {
-    let app_state = use_context::<Signal<AppState>>();
+    let app_state = use_context::<Signal<Option<AppState>>>();
     let mut route = use_context::<Signal<Route>>();
-    let selected_file = app_state.read().selected_file.clone();
+    let selected_file = app_state.read().as_ref()
+        .and_then(|s| s.selected_file.clone());
     
     match selected_file {
         Some(file) => {

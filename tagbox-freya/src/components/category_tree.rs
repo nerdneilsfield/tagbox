@@ -2,8 +2,12 @@ use freya::prelude::*;
 use crate::state::{AppState, Category, FileEntry};
 
 pub fn CategoryTree() -> Element {
-    let app_state = use_context::<Signal<AppState>>();
-    let categories = app_state.read().categories.clone();
+    let app_state = use_context::<Signal<Option<AppState>>>();
+    
+    let categories = match app_state.read().as_ref() {
+        Some(state) => state.categories.clone(),
+        None => vec![]
+    };
     
     rsx! {
         ScrollView {
@@ -115,9 +119,12 @@ fn CategoryNode(category: Category, level: u8) -> Element {
 
 #[component]
 fn FileNode(file: FileEntry, level: u8) -> Element {
-    let mut app_state = use_context::<Signal<AppState>>();
+    let mut app_state = use_context::<Signal<Option<AppState>>>();
     let indent = (level + 1) * 20;
-    let is_selected = app_state.read().selected_file.as_ref() == Some(&file);
+    let is_selected = app_state.read().as_ref()
+        .and_then(|s| s.selected_file.as_ref())
+        .map(|f| f.id == file.id)
+        .unwrap_or(false);
     
     rsx! {
         rect {
@@ -125,7 +132,9 @@ fn FileNode(file: FileEntry, level: u8) -> Element {
             padding: "6 10 6 {indent + 10}",
             background: if is_selected { "rgb(240, 240, 255)" } else { "transparent" },
             onclick: move |_| {
-                app_state.write().selected_file = Some(file.clone());
+                if let Some(state) = app_state.write().as_mut() {
+                    state.selected_file = Some(file.clone());
+                }
             },
             
             label {

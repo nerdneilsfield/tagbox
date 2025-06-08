@@ -9,6 +9,7 @@ mod app;
 mod components;
 mod pages;
 mod router;
+mod services;
 mod state;
 mod utils;
 
