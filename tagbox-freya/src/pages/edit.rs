@@ -1,5 +1,8 @@
 use freya::prelude::*;
 use crate::state::{AppState, FileEntry};
+use futures::{StreamExt, channel::mpsc::UnboundedReceiver};
+use tagbox_core::types::ImportMetadata;
+use std::collections::HashMap;
 
 #[component]
 pub fn EditPage(file_id: String) -> Element {
@@ -20,9 +23,64 @@ pub fn EditPage(file_id: String) -> Element {
             let authors = use_signal(|| file.authors.join(", "));
             let tags = use_signal(|| file.tags.join(", "));
             let mut summary = use_signal(|| file.summary.clone().unwrap_or_default());
-            let category1 = use_signal(|| String::new());
-            let category2 = use_signal(|| String::new());
-            let category3 = use_signal(|| String::new());
+            let category1 = use_signal(|| file.category.as_ref().map(|c| c.level1.clone()).unwrap_or_default());
+            let category2 = use_signal(|| file.category.as_ref().and_then(|c| c.level2.clone()).unwrap_or_default());
+            let category3 = use_signal(|| file.category.as_ref().and_then(|c| c.level3.clone()).unwrap_or_default());
+            let mut is_saving = use_signal(|| false);
+            let mut save_error = use_signal(|| None::<String>);
+            
+            // 保存文件的协程
+            let file_id = file.id.clone();
+            let save_file_coroutine = use_coroutine(move |mut rx: UnboundedReceiver<()>| {
+                let file_id = file_id.clone();
+                async move {
+                    while let Some(_) = rx.next().await {
+                        is_saving.set(true);
+                        save_error.set(None);
+                        
+                        // 构建 ImportMetadata
+                        let metadata = ImportMetadata {
+                            title: title.read().clone(),
+                            authors: authors.read()
+                                .split(',')
+                                .map(|s| s.trim().to_string())
+                                .filter(|s| !s.is_empty())
+                                .collect(),
+                            year: None,  // FileEntry 不包含年份字段
+                            publisher: None,  // FileEntry 不包含出版商字段
+                            source: None,  // FileEntry 不包含来源字段
+                            category1: category1.read().clone(),
+                            category2: if category2.read().is_empty() { None } else { Some(category2.read().clone()) },
+                            category3: if category3.read().is_empty() { None } else { Some(category3.read().clone()) },
+                            tags: tags.read()
+                                .split(',')
+                                .map(|s| s.trim().to_string())
+                                .filter(|s| !s.is_empty())
+                                .collect(),
+                            summary: if summary.read().is_empty() { None } else { Some(summary.read().clone()) },
+                            full_text: None,  // 编辑页面不修改全文
+                            additional_info: HashMap::new(),
+                            file_metadata: None,
+                            type_metadata: None,
+                        };
+                        
+                        if let Some(state) = app_state.read().as_ref() {
+                            match state.service.update_file(&file_id, metadata).await {
+                                Ok(_) => {
+                                    tracing::info!("File updated successfully");
+                                    // TODO: 导航回主页面或显示成功消息
+                                },
+                                Err(e) => {
+                                    save_error.set(Some(format!("保存失败: {}", e)));
+                                    tracing::error!("Failed to save file: {}", e);
+                                }
+                            }
+                        }
+                        
+                        is_saving.set(false);
+                    }
+                }
+            });
             
             rsx! {
                 ScrollView {
@@ -52,6 +110,21 @@ pub fn EditPage(file_id: String) -> Element {
                                 },
                                 
                                 label { "← Back" }
+                            }
+                        }
+                        
+                        // 错误消息显示
+                        if let Some(error) = save_error.read().as_ref() {
+                            rect {
+                                width: "100%",
+                                padding: "15",
+                                background: "rgb(255, 240, 240)",
+                                corner_radius: "4",
+                                
+                                label {
+                                    color: "rgb(200, 50, 50)",
+                                    "{error}"
+                                }
                             }
                         }
                         
@@ -88,7 +161,7 @@ pub fn EditPage(file_id: String) -> Element {
                                 }
                                 
                                 label {
-                                    font_size: "12",
+                                    font_size: "12",  
                                     color: "rgb(120, 120, 120)",
                                     "Size: {format_file_size(file.size)}"
                                 }
@@ -237,11 +310,12 @@ pub fn EditPage(file_id: String) -> Element {
                             
                             Button {
                                 onpress: move |_| {
-                                    // TODO: 保存更改
-                                    tracing::info!("Save changes");
+                                    if !is_saving() {
+                                        save_file_coroutine.send(());
+                                    }
                                 },
                                 
-                                label { "Save" }
+                                label { if is_saving() { "Saving..." } else { "Save" } }
                             }
                         }
                     }
@@ -385,4 +459,77 @@ fn format_file_size(bytes: u64) -> String {
     }
     
     format!("{:.2} {}", size, UNITS[unit_index])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_file_size() {
+        assert_eq!(format_file_size(0), "0.00 B");
+        assert_eq!(format_file_size(512), "512.00 B");
+        assert_eq!(format_file_size(1024), "1.00 KB");
+        assert_eq!(format_file_size(1536), "1.50 KB");
+        assert_eq!(format_file_size(1048576), "1.00 MB");
+        assert_eq!(format_file_size(1073741824), "1.00 GB");
+        assert_eq!(format_file_size(1099511627776), "1.00 TB");
+    }
+
+    #[test]
+    fn test_metadata_parsing() {
+        // 测试作者解析
+        let authors_str = "Author 1, Author 2, , Author 3";
+        let authors: Vec<String> = authors_str
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        assert_eq!(authors, vec!["Author 1", "Author 2", "Author 3"]);
+
+        // 测试标签解析
+        let tags_str = "tag1,tag2,,tag3,   tag4   ";
+        let tags: Vec<String> = tags_str
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        assert_eq!(tags, vec!["tag1", "tag2", "tag3", "tag4"]);
+    }
+
+    #[test]
+    fn test_import_metadata_construction() {
+        let title = "Test Title";
+        let authors = vec!["Author 1".to_string(), "Author 2".to_string()];
+        let category1 = "Category 1";
+        let category2 = "Category 2";
+        let category3 = "";
+        let tags = vec!["tag1".to_string(), "tag2".to_string()];
+        let summary = "Test summary";
+
+        let metadata = ImportMetadata {
+            title: title.to_string(),
+            authors: authors.clone(),
+            year: None,
+            publisher: None,
+            source: None,
+            category1: category1.to_string(),
+            category2: if category2.is_empty() { None } else { Some(category2.to_string()) },
+            category3: if category3.is_empty() { None } else { Some(category3.to_string()) },
+            tags: tags.clone(),
+            summary: if summary.is_empty() { None } else { Some(summary.to_string()) },
+            full_text: None,
+            additional_info: HashMap::new(),
+            file_metadata: None,
+            type_metadata: None,
+        };
+
+        assert_eq!(metadata.title, "Test Title");
+        assert_eq!(metadata.authors, authors);
+        assert_eq!(metadata.category1, "Category 1");
+        assert_eq!(metadata.category2, Some("Category 2".to_string()));
+        assert_eq!(metadata.category3, None);
+        assert_eq!(metadata.tags, tags);
+        assert_eq!(metadata.summary, Some("Test summary".to_string()));
+    }
 }
