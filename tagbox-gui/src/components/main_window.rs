@@ -2,7 +2,7 @@ use fltk::{
     prelude::*,
     window::Window,
     group::{Flex, FlexType},
-    enums::{Color, Event, Key},
+    enums::{Color, Event, Key, FrameType},
 };
 use std::sync::mpsc::{Receiver, Sender, channel};
 use tagbox_core::{config::AppConfig, types::FileEntry};
@@ -46,6 +46,9 @@ impl MainWindow {
         let mut window = Window::new(100, 100, 1200, 850, "TagBox - File Management System");
         window.set_color(Color::from_rgb(245, 245, 245));
         
+        // 设置窗口属性
+        window.size_range(800, 600, 0, 0); // 最小尺寸800x600
+        
         // 菜单栏 (顶部 25px)
         let menu_bar = AppMenuBar::new(0, 0, 1200, 25, event_sender.clone());
         
@@ -57,6 +60,7 @@ impl MainWindow {
         let mut main_container = Flex::new(5, 85, 1190, 740, None);
         main_container.set_type(FlexType::Row);
         main_container.set_spacing(8);
+        main_container.set_frame(FrameType::NoBox); // 无边框
         
         // 左侧分类树 (25% 宽度)
         let mut category_tree = CategoryTree::new(0, 0, 295, 740, event_sender.clone());
@@ -88,6 +92,9 @@ impl MainWindow {
         let status_bar = StatusBar::new(0, 825, 1200, 25, event_sender.clone());
         
         window.end();
+        
+        // 设置窗口可调整大小 - 主容器作为resizable
+        window.resizable(&main_container);
         
         // 创建应用状态
         let state = AppState::new(config);

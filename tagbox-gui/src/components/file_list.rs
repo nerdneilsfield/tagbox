@@ -32,16 +32,20 @@ impl FileList {
         // 创建 SmartTable
         let mut table = SmartTable::new(x, y, w, h, None);
         
-        // 设置表格选项
+        // 设置表格选项 - 初始化时至少需要1行以避免header错误
         let opts = TableOpts {
-            rows: 0,
-            cols: 5, // Title, Authors, Year, Tags, Category
+            rows: 1,  // 初始至少1行
+            cols: 5,  // Title, Authors, Year, Tags, Category
             editable: false,
             ..Default::default()
         };
         table.set_opts(opts);
         
-        // 设置列标题
+        // 启用列标题
+        table.set_col_header(true);
+        table.set_row_header(false);
+        
+        // 设置列标题 - 现在安全了
         table.set_col_header_value(0, "Title");
         table.set_col_header_value(1, "Authors");
         table.set_col_header_value(2, "Year");
@@ -123,11 +127,8 @@ impl FileList {
         let mut files = self.files.lock().unwrap();
         *files = search_result.entries;
         
-        // 更新表格行数
-        self.table.set_rows(files.len() as i32);
-        
         if files.is_empty() {
-            // 如果没有文件，显示提示信息
+            // 如果没有文件，保持1行显示提示信息
             self.table.set_rows(1);
             self.table.set_cell_value(0, 0, "No files found. Try a different search or import some files.");
             for col in 1..5 {
@@ -136,6 +137,9 @@ impl FileList {
             self.table.deactivate();
             return Ok(());
         }
+        
+        // 更新表格行数为实际文件数
+        self.table.set_rows(files.len() as i32);
         
         // 激活表格
         self.table.activate();
@@ -198,7 +202,12 @@ impl FileList {
         let mut files = self.files.lock().unwrap();
         files.clear();
         self.selected_index = None;
-        self.table.set_rows(0);
+        // 保持至少1行以避免panic
+        self.table.set_rows(1);
+        self.table.set_cell_value(0, 0, "");
+        for col in 1..5 {
+            self.table.set_cell_value(0, col, "");
+        }
         self.table.redraw();
     }
     
