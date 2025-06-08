@@ -14,8 +14,7 @@ pub fn DragDropArea(
             background: if is_dragging() { "rgb(230, 230, 255)" } else { "rgb(245, 245, 245)" },
             corner_radius: "8",
             border: if is_dragging() { "2 solid rgb(100, 100, 255)" } else { "2 dashed rgb(200, 200, 200)" },
-            main_align: "center",
-            cross_align: "center",
+            content: "center",
             onclick: move |_| {
                 // TODO: 打开文件选择对话框
                 // 在实际实现中，这里需要集成系统文件对话框
@@ -31,15 +30,13 @@ pub fn DragDropArea(
             rect {
                 direction: "column",
                 spacing: "15",
-                main_align: "center",
-                cross_align: "center",
+                content: "center",
                 
                 // 图标
                 rect {
                     width: "60",
                     height: "60",
-                    main_align: "center",
-                    cross_align: "center",
+                    content: "center",
                     
                     label {
                         font_size: "40",
@@ -112,7 +109,7 @@ pub fn SelectedFileDisplay(
                     background: "rgb(250, 250, 255)",
                     corner_radius: "6",
                     direction: "horizontal",
-                    cross_align: "center",
+                    content: "center start",
                     
                     // 文件图标
                     label {
@@ -123,7 +120,7 @@ pub fn SelectedFileDisplay(
                     
                     // 文件信息
                     rect {
-                        width: "fill",
+                        width: "flex",
                         direction: "column",
                         spacing: "5",
                         
@@ -145,8 +142,7 @@ pub fn SelectedFileDisplay(
                     rect {
                         width: "30",
                         height: "30",
-                        main_align: "center",
-                        cross_align: "center",
+                        content: "center",
                         corner_radius: "15",
                         background: "rgb(255, 100, 100)",
                         onclick: move |_| onremove.call(()),

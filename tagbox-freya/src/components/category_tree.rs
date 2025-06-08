@@ -47,7 +47,7 @@ fn CategoryNode(category: Category, level: u8) -> Element {
                 width: "100%",
                 padding: "8 10 8 {indent + 10}",
                 direction: "horizontal",
-                cross_align: "center",
+                content: "center start",
                 spacing: "8",
                 onclick: move |_| {
                     if has_children || has_files {
@@ -61,7 +61,6 @@ fn CategoryNode(category: Category, level: u8) -> Element {
                         font_size: "12",
                         color: "rgb(150, 150, 150)",
                         width: "16",
-                        text_align: "center",
                         if expanded() { "▼" } else { "▶" }
                     }
                 } else {

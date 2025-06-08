@@ -37,6 +37,16 @@ pub fn App() -> Element {
                                         tracing::error!("Failed to load files: {}", e);
                                     }
                                 }
+                                
+                                // 加载分类
+                                match api.get_categories().await {
+                                    Ok(categories) => {
+                                        app_state.write().categories = categories;
+                                    }
+                                    Err(e) => {
+                                        tracing::error!("Failed to load categories: {}", e);
+                                    }
+                                }
                             }
                         }
                     }
@@ -62,15 +72,20 @@ pub fn MainView() -> Element {
             width: "100%",
             height: "100%",
             background: "rgb(245, 245, 245)",
-            direction: "column",
             
             // 顶部栏
-            TopBar {}
+            rect {
+                width: "100%",
+                height: "60",
+                background: "white",
+                
+                TopBar {}
+            }
             
             // 主内容区域
             rect {
                 width: "100%",
-                height: "calc(100% - 60)",
+                height: "flex",
                 direction: "horizontal",
                 
                 // 左侧分类树
@@ -78,7 +93,6 @@ pub fn MainView() -> Element {
                     width: "300",
                     height: "100%",
                     background: "white",
-                    shadow: "0 0 10 0 rgb(0, 0, 0, 10)",
                     padding: "10",
                     
                     CategoryTree {}
@@ -86,8 +100,9 @@ pub fn MainView() -> Element {
                 
                 // 中间文件列表
                 rect {
-                    width: "fill",
+                    width: "flex",
                     height: "100%",
+                    background: "rgb(250, 250, 250)",
                     padding: "20",
                     
                     ScrollView {
@@ -100,7 +115,6 @@ pub fn MainView() -> Element {
                     width: "400",
                     height: "100%",
                     background: "white",
-                    shadow: "0 0 10 0 rgb(0, 0, 0, 10)",
                     padding: "20",
                     
                     FilePreview {}
@@ -114,16 +128,31 @@ fn FileList() -> Element {
     let app_state = use_context::<Signal<AppState>>();
     let files = app_state.read().files.clone();
     
-    rsx! {
-        rect {
-            width: "100%",
-            direction: "column",
-            spacing: "10",
-            
-            for file in files {
-                FileCard {
-                    key: "{file.id}",
-                    file: file.clone()
+    if files.is_empty() {
+        rsx! {
+            rect {
+                width: "100%",
+                height: "100%",
+                content: "center",
+                
+                label {
+                    font_size: "18",
+                    color: "rgb(150, 150, 150)",
+                    "No files found. Click 'Import File' to add files."
+                }
+            }
+        }
+    } else {
+        rsx! {
+            rect {
+                width: "100%",
+                spacing: "10",
+                
+                for file in files {
+                    FileCard {
+                        key: "{file.id}",
+                        file: file.clone()
+                    }
                 }
             }
         }
@@ -141,13 +170,11 @@ fn FileCard(file: FileEntry) -> Element {
             padding: "15",
             background: if is_selected { "rgb(240, 240, 255)" } else { "white" },
             corner_radius: "8",
-            shadow: "0 2 8 0 rgb(0, 0, 0, 8)",
             onclick: move |_| {
                 app_state.write().selected_file = Some(file.clone());
             },
             
             rect {
-                direction: "column",
                 spacing: "8",
                 
                 // 标题
@@ -159,20 +186,22 @@ fn FileCard(file: FileEntry) -> Element {
                 }
                 
                 // 标签
-                rect {
-                    direction: "horizontal",
-                    spacing: "5",
-                    
-                    for tag in &file.tags {
-                        rect {
-                            padding: "4 8",
-                            background: "rgb(100, 100, 255)",
-                            corner_radius: "12",
-                            
-                            label {
-                                font_size: "12",
-                                color: "white",
-                                "{tag}"
+                if !file.tags.is_empty() {
+                    rect {
+                        direction: "horizontal",
+                        spacing: "5",
+                        
+                        for tag in &file.tags {
+                            rect {
+                                padding: "4 8",
+                                background: "rgb(100, 100, 255)",
+                                corner_radius: "12",
+                                
+                                label {
+                                    font_size: "12",
+                                    color: "white",
+                                    "{tag}"
+                                }
                             }
                         }
                     }

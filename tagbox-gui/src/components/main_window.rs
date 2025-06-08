@@ -59,16 +59,16 @@ impl MainWindow {
         search_bar.enable_live_suggestions(config.clone());
         
         // 主体布局容器使用 Tile 以支持拖拽调整大小 (搜索栏下方到状态栏上方)
-        let mut main_tile = Tile::new(5, 85, 1190, 740, None);
+        let main_tile = Tile::new(5, 85, 1190, 740, None);
         
         // 左侧分类树 (初始 25% 宽度)
-        let mut category_tree = CategoryTree::new(5, 85, 295, 740, event_sender.clone());
+        let category_tree = CategoryTree::new(5, 85, 295, 740, event_sender.clone());
         
         // 中间垂直 Tile：文件列表和拖拽区域 (初始 40% 宽度)
-        let mut vertical_tile = Tile::new(303, 85, 475, 740, None);
+        let vertical_tile = Tile::new(303, 85, 475, 740, None);
         
         // 文件列表 (上方，初始 80%)
-        let mut file_list = FileList::new(303, 85, 475, 590, event_sender.clone());
+        let file_list = FileList::new(303, 85, 475, 590, event_sender.clone());
         
         // 拖拽区域 (下方，初始 20%)
         let mut drag_drop_area = DragDropArea::new(303, 680, 475, 145, event_sender.clone());
@@ -76,7 +76,7 @@ impl MainWindow {
         vertical_tile.end();
         
         // 右侧预览面板 (初始 35% 宽度)
-        let mut file_preview = FilePreview::new(786, 85, 409, 740, event_sender.clone());
+        let file_preview = FilePreview::new(786, 85, 409, 740, event_sender.clone());
         
         main_tile.end();
         

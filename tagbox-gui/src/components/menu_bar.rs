@@ -1,6 +1,6 @@
 use fltk::{
     prelude::*,
-    menu::{MenuBar, MenuFlag},
+    menu::MenuBar,
     enums::Color,
 };
 use std::sync::mpsc::Sender;
@@ -455,7 +455,7 @@ Licensed under MIT License
             let mut opened = false;
             
             for editor in &editors {
-                if let Ok(mut child) = Command::new(editor)
+                if let Ok(child) = Command::new(editor)
                     .arg(path)
                     .spawn()
                 {

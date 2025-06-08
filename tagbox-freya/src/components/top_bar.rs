@@ -11,17 +11,15 @@ pub fn TopBar() -> Element {
             width: "100%",
             height: "60",
             background: "white",
-            shadow: "0 2 4 0 rgb(0, 0, 0, 10)",
             padding: "10 20",
             direction: "horizontal",
-            main_align: "center",
-            cross_align: "center",
             
             // Logo和标题
             rect {
-                direction: "horizontal",
-                cross_align: "center",
-                spacing: "10",
+                width: "auto",
+                height: "100%",
+                content: "center",
+                margin: "0 20 0 0",
                 
                 label {
                     font_size: "24",
@@ -33,11 +31,11 @@ pub fn TopBar() -> Element {
             
             // 搜索区域
             rect {
-                width: "fill",
-                max_width: "600",
-                margin: "0 20",
+                width: "flex",
+                height: "100%",
                 direction: "horizontal",
                 spacing: "10",
+                content: "center",
                 
                 SearchInput {}
                 
@@ -49,12 +47,19 @@ pub fn TopBar() -> Element {
             }
             
             // 导入按钮
-            Button {
-                onpress: move |_| {
-                    route.set(Route::Import);
-                },
+            rect {
+                width: "auto",
+                height: "100%",
+                content: "center",
+                margin: "0 0 0 20",
                 
-                label { "Import File" }
+                Button {
+                    onpress: move |_| {
+                        route.set(Route::Import);
+                    },
+                    
+                    label { "Import File" }
+                }
             }
         }
         

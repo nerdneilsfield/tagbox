@@ -55,7 +55,7 @@ impl AdvancedSearchDialog {
         let field_height = 30;
         let label_height = 20;
         let spacing = 8;
-        let mut y = padding;
+        let y = padding;
         
         // 主容器
         let mut main_flex = Flex::new(padding, y, 710, 640, None);

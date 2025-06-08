@@ -1,6 +1,6 @@
 use fltk::{
     prelude::*,
-    menu::{MenuButton, MenuFlag},
+    menu::MenuButton,
     enums::Color,
 };
 use std::sync::mpsc::Sender;

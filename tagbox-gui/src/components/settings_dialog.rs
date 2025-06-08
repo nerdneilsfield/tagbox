@@ -59,7 +59,7 @@ impl SettingsDialog {
         window.make_modal(true);
         window.set_color(Color::from_rgb(248, 249, 250));
         
-        let mut tabs = Tabs::new(10, 10, 680, 480, None);
+        let tabs = Tabs::new(10, 10, 680, 480, None);
         
         // 配置文件标签页
         let mut config_tab = Group::new(10, 35, 680, 455, "Configuration\t");
@@ -102,7 +102,7 @@ impl SettingsDialog {
         button_flex.set_spacing(10);
         
         // 空间填充
-        let mut spacer = Frame::new(0, 0, 0, 0, None);
+        let spacer = Frame::new(0, 0, 0, 0, None);
         button_flex.fixed(&spacer, 300);
         
         let mut save_btn = Button::new(0, 0, 100, 30, "Save");
@@ -158,7 +158,7 @@ impl SettingsDialog {
         flex.set_spacing(20);
         
         // 配置文件路径组
-        let mut config_group = Group::new(0, 0, 640, 80, None);
+        let config_group = Group::new(0, 0, 640, 80, None);
         let mut config_label = Frame::new(0, 0, 200, 25, "当前配置文件:");
         config_label.set_align(Align::Left | Align::Inside);
         
@@ -208,7 +208,7 @@ impl SettingsDialog {
         flex.set_spacing(20);
         
         // 数据库路径组
-        let mut db_group = Group::new(0, 0, 640, 80, None);
+        let db_group = Group::new(0, 0, 640, 80, None);
         let mut db_label = Frame::new(0, 0, 200, 25, "数据库文件路径:");
         db_label.set_align(Align::Left | Align::Inside);
         
@@ -230,7 +230,7 @@ impl SettingsDialog {
         flex.fixed(&db_group, 80);
         
         // 数据库操作组
-        let mut ops_group = Group::new(0, 0, 640, 60, None);
+        let ops_group = Group::new(0, 0, 640, 60, None);
         let mut ops_label = Frame::new(0, 0, 200, 25, "数据库操作:");
         ops_label.set_align(Align::Left | Align::Inside);
         
@@ -249,7 +249,7 @@ impl SettingsDialog {
         ops_flex.fixed(&rebuild_index_btn, 120);
         
         // 填充空间
-        let mut spacer = Frame::new(0, 0, 0, 0, None);
+        let spacer = Frame::new(0, 0, 0, 0, None);
         ops_flex.fixed(&spacer, 400);
         
         ops_flex.end();
@@ -275,7 +275,7 @@ impl SettingsDialog {
         flex.set_spacing(20);
         
         // 导入路径组
-        let mut import_group = Group::new(0, 0, 640, 80, None);
+        let import_group = Group::new(0, 0, 640, 80, None);
         let mut import_label = Frame::new(0, 0, 200, 25, "默认导入目录:");
         import_label.set_align(Align::Left | Align::Inside);
         
@@ -297,14 +297,14 @@ impl SettingsDialog {
         flex.fixed(&import_group, 80);
         
         // 导入选项组
-        let mut options_group = Group::new(0, 0, 640, 100, None);
+        let options_group = Group::new(0, 0, 640, 100, None);
         let mut options_label = Frame::new(0, 0, 200, 25, "导入选项:");
         options_label.set_align(Align::Left | Align::Inside);
         
-        let mut auto_extract_checkbox = CheckButton::new(0, 35, 300, 25, "自动提取文件元数据");
+        let auto_extract_checkbox = CheckButton::new(0, 35, 300, 25, "自动提取文件元数据");
         auto_extract_checkbox.set_checked(true);
         
-        let mut auto_move_checkbox = CheckButton::new(0, 65, 300, 25, "导入后移动文件到存储目录");
+        let auto_move_checkbox = CheckButton::new(0, 65, 300, 25, "导入后移动文件到存储目录");
         auto_move_checkbox.set_checked(false);
         
         options_group.end();
@@ -329,18 +329,18 @@ impl SettingsDialog {
         flex.set_spacing(20);
         
         // 搜索功能组
-        let mut search_group = Group::new(0, 0, 640, 80, None);
+        let search_group = Group::new(0, 0, 640, 80, None);
         let mut search_label = Frame::new(0, 0, 200, 25, "搜索功能:");
         search_label.set_align(Align::Left | Align::Inside);
         
-        let mut enable_fts_checkbox = CheckButton::new(0, 35, 300, 25, "启用全文搜索 (FTS)");
+        let enable_fts_checkbox = CheckButton::new(0, 35, 300, 25, "启用全文搜索 (FTS)");
         enable_fts_checkbox.set_checked(true);
         
         search_group.end();
         flex.fixed(&search_group, 80);
         
         // 搜索限制组
-        let mut limit_group = Group::new(0, 0, 640, 80, None);
+        let limit_group = Group::new(0, 0, 640, 80, None);
         let mut limit_label = Frame::new(0, 0, 200, 25, "搜索结果限制:");
         limit_label.set_align(Align::Left | Align::Inside);
         
@@ -358,7 +358,7 @@ impl SettingsDialog {
         limit_flex.fixed(&results_label, 150);
         
         // 填充空间
-        let mut spacer = Frame::new(0, 0, 0, 0, None);
+        let spacer = Frame::new(0, 0, 0, 0, None);
         limit_flex.fixed(&spacer, 390);
         
         limit_flex.end();

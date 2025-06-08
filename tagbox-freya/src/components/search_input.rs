@@ -14,7 +14,7 @@ pub fn SearchInput() -> Element {
     
     rsx! {
         rect {
-            width: "fill",
+            width: "flex",
             height: "40",
             background: "rgb(245, 245, 245)",
             corner_radius: "20",

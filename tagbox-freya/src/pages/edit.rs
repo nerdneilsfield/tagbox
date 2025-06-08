@@ -31,12 +31,12 @@ pub fn EditPage(file_id: String) -> Element {
                         // 页面标题
                         rect {
                             direction: "horizontal",
-                            cross_align: "center",
+                            content: "center start",
                             
                             label {
                                 font_size: "28",
                                 font_weight: "bold",
-                                width: "fill",
+                                width: "flex",
                                 "Edit File"
                             }
                             
@@ -211,7 +211,7 @@ pub fn EditPage(file_id: String) -> Element {
                                 label { "Reset to Original" }
                             }
                             
-                            rect { width: "fill" }
+                            rect { width: "flex" }
                             
                             Button {
                                 onpress: move |_| {
@@ -248,8 +248,7 @@ pub fn EditPage(file_id: String) -> Element {
             rect {
                 width: "100%",
                 height: "100%",
-                main_align: "center",
-                cross_align: "center",
+                content: "center",
                 
                 label {
                     font_size: "18",
@@ -342,7 +341,7 @@ fn LinkedFilesSection(file_id: String) -> Element {
                     padding: "20",
                     background: "rgb(250, 250, 250)",
                     corner_radius: "8",
-                    main_align: "center",
+                    content: "center",
                     
                     label {
                         color: "rgb(150, 150, 150)",
@@ -360,7 +359,7 @@ fn LinkedFilesSection(file_id: String) -> Element {
             }
             
             Button {
-                onpress: move |_| {
+                onclick: move |_| {
                     // TODO: 添加关联文件
                     tracing::info!("Add linked file");
                 },

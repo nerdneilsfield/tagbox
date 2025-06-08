@@ -6,7 +6,7 @@ use fltk::{
 };
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use crate::state::AppEvent;
 
 pub struct DragDropArea {

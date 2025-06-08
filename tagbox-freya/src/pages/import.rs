@@ -67,7 +67,7 @@ pub fn ImportPage() -> Element {
                         spacing: "10",
                         
                         Input {
-                            width: "fill",
+                            width: "flex",
                             placeholder: "Or enter URL to download",
                             value: "{download_url}",
                             onchange: move |e: String| {
@@ -140,7 +140,7 @@ pub fn ImportPage() -> Element {
                             }
                             
                             rect {
-                                width: "fill",
+                                width: "flex",
                                 direction: "column",
                                 spacing: "8",
                                 

@@ -237,8 +237,7 @@ pub fn FilePreview() -> Element {
             rect {
                 width: "100%",
                 height: "100%",
-                main_align: "center",
-                cross_align: "center",
+                content: "center",
                 
                 label {
                     font_size: "16",

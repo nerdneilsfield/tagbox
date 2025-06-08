@@ -258,7 +258,7 @@ impl StatisticsDialog {
         cat_flex.fixed(&category_tree, 400);
         
         // 分类详细统计
-        let mut category_buffer = TextBuffer::default();
+        let category_buffer = TextBuffer::default();
         let mut category_stats_text = TextDisplay::new(0, 0, 435, 540, None);
         category_stats_text.set_buffer(category_buffer.clone());
         category_stats_text.set_color(Color::White);
@@ -272,7 +272,7 @@ impl StatisticsDialog {
         let mut filetype_group = Group::new(5, 25, 860, 550, "File Types");
         filetype_group.set_color(Color::White);
         
-        let mut filetype_buffer = TextBuffer::default();
+        let filetype_buffer = TextBuffer::default();
         let mut filetype_stats_text = TextDisplay::new(10, 35, 850, 540, None);
         filetype_stats_text.set_buffer(filetype_buffer.clone());
         filetype_stats_text.set_color(Color::White);
@@ -284,7 +284,7 @@ impl StatisticsDialog {
         let mut author_group = Group::new(5, 25, 860, 550, "Authors");
         author_group.set_color(Color::White);
         
-        let mut author_buffer = TextBuffer::default();
+        let author_buffer = TextBuffer::default();
         let mut author_stats_text = TextDisplay::new(10, 35, 850, 540, None);
         author_stats_text.set_buffer(author_buffer.clone());
         author_stats_text.set_color(Color::White);
@@ -296,7 +296,7 @@ impl StatisticsDialog {
         let mut timeline_group = Group::new(5, 25, 860, 550, "Timeline");
         timeline_group.set_color(Color::White);
         
-        let mut timeline_buffer = TextBuffer::default();
+        let timeline_buffer = TextBuffer::default();
         let mut timeline_stats_text = TextDisplay::new(10, 35, 850, 540, None);
         timeline_stats_text.set_buffer(timeline_buffer.clone());
         timeline_stats_text.set_color(Color::White);
