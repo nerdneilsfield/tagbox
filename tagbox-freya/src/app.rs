@@ -1,7 +1,7 @@
 use freya::prelude::*;
 use futures::channel::mpsc::UnboundedReceiver;
-use crate::router::Router;
-use crate::components::{TopBar, CategoryTree, FilePreview, ToastContainer};
+use crate::router::{Router, Route, use_route};
+use crate::components::{TopBar, CategoryTree, FilePreview, ToastContainer, Breadcrumb};
 use crate::state::{AppState, FileEntry};
 
 pub fn App() -> Element {
@@ -119,6 +119,9 @@ pub fn MainView() -> Element {
             // 顶部栏
             TopBar {}
             
+            // 面包屑导航
+            Breadcrumb {}
+            
             // 错误消息显示
             if let Some(error) = app_state.read().as_ref().and_then(|s| s.error_message.as_ref()) {
                 rect {
@@ -222,6 +225,7 @@ fn FileList() -> Element {
 #[component]
 fn FileCard(file: FileEntry) -> Element {
     let mut app_state = use_context::<Signal<Option<AppState>>>();
+    let mut route = use_route();
     
     let is_selected = app_state.read().as_ref()
         .and_then(|s| s.selected_file.as_ref())
@@ -280,17 +284,34 @@ fn FileCard(file: FileEntry) -> Element {
                 rect {
                     direction: "horizontal",
                     spacing: "15",
+                    content: "center space",
                     
-                    label {
-                        font_size: "12",
-                        color: "rgb(120, 120, 120)",
-                        "{file.authors.join(\", \")}"
+                    rect {
+                        direction: "horizontal",
+                        spacing: "15",
+                        
+                        label {
+                            font_size: "12",
+                            color: "rgb(120, 120, 120)",
+                            "{file.authors.join(\", \")}"
+                        }
+                        
+                        label {
+                            font_size: "12", 
+                            color: "rgb(150, 150, 150)",
+                            "{file.imported_at}"
+                        }
                     }
                     
-                    label {
-                        font_size: "12", 
-                        color: "rgb(150, 150, 150)",
-                        "{file.imported_at}"
+                    // 编辑按钮
+                    Button {
+                        onpress: move |_| {
+                            // 不需要 stop_propagation，Button 会处理
+                            let file_id = file.id.clone();
+                            route.set(Route::Edit(file_id));
+                        },
+                        
+                        label { "编辑" }
                     }
                 }
             }

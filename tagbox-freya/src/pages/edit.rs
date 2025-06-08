@@ -1,6 +1,7 @@
 use freya::prelude::*;
 use crate::state::{AppState, FileEntry};
 use crate::components::ConfirmDialog;
+use crate::router::{Route, use_route};
 use futures::{StreamExt, channel::mpsc::UnboundedReceiver};
 use tagbox_core::types::ImportMetadata;
 use std::collections::HashMap;
@@ -8,6 +9,7 @@ use std::collections::HashMap;
 #[component]
 pub fn EditPage(file_id: String) -> Element {
     let mut app_state = use_context::<Signal<Option<AppState>>>();
+    let mut route = use_route();
     
     // 查找要编辑的文件
     let file: Option<FileEntry> = app_state.read().as_ref()
@@ -118,7 +120,7 @@ pub fn EditPage(file_id: String) -> Element {
                                 if let Some(state) = app_state.write().as_mut() {
                                     state.show_success("文件删除成功");
                                 }
-                                // TODO: 导航回主页面
+                                route.set(Route::Main);
                             },
                             Err(e) => {
                                 delete_error.set(Some(format!("删除失败: {}", e)));
@@ -197,8 +199,7 @@ pub fn EditPage(file_id: String) -> Element {
                             // 返回按钮
                             Button {
                                 onpress: move |_| {
-                                    // TODO: 返回主页面
-                                    tracing::info!("Navigate back");
+                                    route.set(Route::Main);
                                 },
                                 
                                 label { "← Back" }
@@ -418,8 +419,7 @@ pub fn EditPage(file_id: String) -> Element {
                             
                             Button {
                                 onpress: move |_| {
-                                    // TODO: 取消编辑
-                                    tracing::info!("Cancel edit");
+                                    route.set(Route::Main);
                                 },
                                 
                                 label { "Cancel" }

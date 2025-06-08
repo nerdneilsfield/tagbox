@@ -1,4 +1,5 @@
 use freya::prelude::*;
+use std::rc::Rc;
 use crate::pages::{ImportPage, EditPage};
 use crate::app::MainView;
 
@@ -20,8 +21,10 @@ pub fn Router() -> Element {
     }
 }
 
-/// 导航到指定路由
-pub fn navigate_to(_route: Route) {
-    // 这个函数需要在组件内部调用，以获取路由上下文
-    // 在实际使用时，通过 use_context 获取路由信号并更新
+/// 获取当前路由
+pub fn use_route() -> Signal<Route> {
+    use_context::<Signal<Route>>()
 }
+
+// 注意：这些函数已被 use_navigator() hook 替代
+// 保留这些函数只是为了向后兼容
