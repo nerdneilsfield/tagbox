@@ -5,6 +5,7 @@ members = [
     "tagbox-cli",
     "tagbox-tui",
     "tagbox-gui",
+    "tagbox-freya",
     "tagbox-config",
     "tagbox-tools",
     "signal-fts5"
