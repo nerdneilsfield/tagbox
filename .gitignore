@@ -66,3 +66,4 @@ tagbox_data/
 tagbox.db
 tagbox.db-wal
 test-config.toml
+temp/

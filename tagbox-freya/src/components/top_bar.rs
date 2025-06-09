@@ -13,6 +13,7 @@ pub fn TopBar() -> Element {
             background: "white",
             padding: "10 20",
             direction: "horizontal",
+            border: "0 0 1 0 solid rgb(230, 230, 230)",
             
             // Logo和标题
             rect {
@@ -31,11 +32,12 @@ pub fn TopBar() -> Element {
             
             // 搜索区域
             rect {
-                width: "flex",
+                width: "fill",
                 height: "100%",
                 direction: "horizontal",
                 spacing: "10",
                 content: "center",
+                max_width: "600",
                 
                 SearchInput {}
                 

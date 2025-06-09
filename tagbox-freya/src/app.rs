@@ -94,6 +94,7 @@ pub fn App() -> Element {
             width: "100%",
             height: "100%",
             background: "rgb(250, 250, 250)",
+            direction: "column",
             
             Router {}
             
@@ -139,7 +140,8 @@ pub fn MainView() -> Element {
             // 主内容区域
             rect {
                 width: "100%",
-                height: "flex",
+                height: "fill",
+                min_height: "0",
                 direction: "horizontal",
                 
                 // 左侧面板 - 分类树
@@ -148,15 +150,18 @@ pub fn MainView() -> Element {
                     height: "100%",
                     background: "rgb(245, 245, 245)",
                     padding: "20",
+                    border: "1 solid rgb(230, 230, 230)",
                     
                     CategoryTree {}
                 }
                 
                 // 中间区域 - 文件列表
                 rect {
-                    width: "flex",
+                    width: "fill",
+                    min_width: "0",
                     height: "100%",
                     padding: "20",
+                    border: "1 solid rgb(230, 230, 230)",
                     
                     FileList {}
                 }
@@ -167,6 +172,7 @@ pub fn MainView() -> Element {
                     height: "100%",
                     background: "rgb(248, 248, 248)",
                     padding: "20",
+                    border: "1 solid rgb(230, 230, 230)",
                     
                     FilePreview {}
                 }
