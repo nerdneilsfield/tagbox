@@ -10,53 +10,48 @@ pub fn SettingsPage() -> Element {
     let app_state = use_context::<Signal<Option<AppState>>>();
     let mut route = use_route();
     
-    // 配置相关状态
-    let mut config_path = use_signal(|| String::new());
+    let mut config_path = use_signal(|| String::from("tagbox.toml"));
     let mut config_content = use_signal(|| String::new());
     let mut is_loading = use_signal(|| false);
     let mut save_message = use_signal(|| None::<String>);
     let mut error_message = use_signal(|| None::<String>);
     
-    // 加载当前配置
-    use_coroutine(move |_: UnboundedReceiver<()>| async move {
-        is_loading.set(true);
-        
-        if let Some(state) = app_state.read().as_ref() {
-            // 获取配置路径
-            let path = state.service.config_path().unwrap_or_default();
-            config_path.set(path.to_string_lossy().to_string());
+    // 加载配置文件的协程
+    let load_config_coroutine = use_coroutine(move |mut rx: UnboundedReceiver<String>| async move {
+        while let Some(path) = rx.next().await {
+            is_loading.set(true);
+            error_message.set(None);
+            save_message.set(None);
             
-            // 读取配置内容
             match tokio::fs::read_to_string(&path).await {
                 Ok(content) => {
                     config_content.set(content);
+                    config_path.set(path);
                 }
                 Err(e) => {
                     error_message.set(Some(format!("读取配置文件失败: {}", e)));
                 }
             }
+            
+            is_loading.set(false);
         }
-        
-        is_loading.set(false);
     });
     
-    // 保存配置的协程
+    // 保存配置文件的协程
     let save_config_coroutine = use_coroutine(move |mut rx: UnboundedReceiver<()>| async move {
         while let Some(_) = rx.next().await {
             is_loading.set(true);
-            save_message.set(None);
             error_message.set(None);
             
-            let path = PathBuf::from(config_path.read().clone());
+            let path = config_path.read().clone();
             let content = config_content.read().clone();
             
             match tokio::fs::write(&path, &content).await {
                 Ok(_) => {
                     save_message.set(Some("配置已保存".to_string()));
-                    
-                    // 通知服务重新加载配置
-                    // TODO: 实现配置重新加载
-                    save_message.set(Some("配置已保存（需要重启应用以生效）".to_string()));
+                    // 3秒后清除消息
+                    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                    save_message.set(None);
                 }
                 Err(e) => {
                     error_message.set(Some(format!("保存配置失败: {}", e)));
@@ -71,42 +66,45 @@ pub fn SettingsPage() -> Element {
     let init_config_coroutine = use_coroutine(move |mut rx: UnboundedReceiver<String>| async move {
         while let Some(path) = rx.next().await {
             is_loading.set(true);
+            error_message.set(None);
             
             // 创建默认配置内容
-            let default_config = r#"# TagBox Configuration
+            let default_config = r#"# TagBox Configuration File
 # TagBox 配置文件
 
 [database]
-# Database file path
-# 数据库文件路径
+# Database file path / 数据库文件路径
 path = "tagbox_data/tagbox.db"
 
 [import]
-# Default paths for import
-# 默认导入路径
+# Default import paths / 默认导入路径
 default_paths = ["~/Documents", "~/Downloads"]
 
-# File size limit in MB
-# 文件大小限制（MB）
+# Maximum file size in MB / 最大文件大小（MB）
 max_file_size = 100
 
+# Supported file types / 支持的文件类型
+file_types = ["pdf", "epub", "txt", "md", "djvu", "mobi"]
+
 [search]
-# Maximum search results
-# 最大搜索结果数
+# Maximum search results / 最大搜索结果数
 max_results = 100
 
-# Enable fuzzy search
-# 启用模糊搜索
+# Enable fuzzy search / 启用模糊搜索
 fuzzy_search = true
 
+# Search history limit / 搜索历史限制
+history_limit = 50
+
 [ui]
-# Theme (light/dark)
-# 主题（light/dark）
+# Theme (light/dark) / 主题
 theme = "light"
 
-# Language (en/zh)
-# 语言（en/zh）
-language = "zh"
+# Language / 语言
+language = "zh-CN"
+
+# Show status bar / 显示状态栏
+show_status_bar = true
 "#;
             
             match tokio::fs::write(&path, default_config).await {
@@ -124,206 +122,279 @@ language = "zh"
         }
     });
     
+    // 文件选择协程
+    let file_picker_coroutine = use_coroutine(move |mut rx: UnboundedReceiver<()>| async move {
+        while let Some(_) = rx.next().await {
+            if let Some(file) = rfd::AsyncFileDialog::new()
+                .add_filter("TOML files", &["toml"])
+                .add_filter("All files", &["*"])
+                .set_directory(dirs::config_dir().unwrap_or_default())
+                .pick_file()
+                .await
+            {
+                let path = file.path().to_string_lossy().to_string();
+                tracing::info!("Selected config file: {}", path);
+                
+                // 加载选择的配置文件
+                config_path.set(path.clone());
+                load_config_coroutine.send(path);
+            }
+        }
+    });
+    
+    // 页面加载时自动加载配置
+    use_effect(move || {
+        load_config_coroutine.send(config_path.read().clone());
+    });
+    
     rsx! {
-        ScrollView {
+        rect {
+            width: "100%",
+            height: "100%",
+            direction: "column",
+            background: "rgb(245, 245, 245)",
+            
+            // 顶部栏
             rect {
                 width: "100%",
-                padding: "40",
-                direction: "column",
-                spacing: "30",
+                height: "60",
+                background: "white",
+                shadow: "0 2 4 0 rgb(200, 200, 200)",
+                padding: "0 40",
+                direction: "horizontal",
+                content: "center space",
                 
-                // 页面标题和返回按钮
                 rect {
-                    width: "100%",
                     direction: "horizontal",
-                    content: "center space",
-                    margin: "0 0 20 0",
+                    spacing: "20",
+                    cross_align: "center",
                     
                     label {
-                        font_size: "28",
+                        font_size: "24",
                         font_weight: "bold",
                         "Settings"
                     }
-                    
-                    CustomButton {
-                        text: "← Back",
-                        variant: "secondary",
-                        onpress: move |_| {
-                            route.set(Route::Main);
-                        },
-                    }
                 }
                 
-                // 成功消息
-                if let Some(message) = save_message.read().as_ref() {
-                    rect {
-                        width: "100%",
-                        padding: "15",
-                        background: "rgb(240, 255, 240)",
-                        corner_radius: "8",
-                        
-                        label {
-                            color: "rgb(50, 200, 50)",
-                            "{message}"
-                        }
-                    }
+                CustomButton {
+                    text: "← Back",
+                    variant: "secondary",
+                    onpress: move |_| {
+                        route.set(Route::Main);
+                    },
                 }
-                
-                // 错误消息
-                if let Some(error) = error_message.read().as_ref() {
-                    rect {
-                        width: "100%",
-                        padding: "15",
-                        background: "rgb(255, 240, 240)",
-                        corner_radius: "8",
-                        
-                        label {
-                            color: "rgb(200, 50, 50)",
-                            "{error}"
-                        }
-                    }
-                }
-                
-                // 配置文件路径
+            }
+            
+            // 主内容区域
+            ScrollView {
                 rect {
                     width: "100%",
+                    padding: "40",
                     direction: "column",
-                    spacing: "10",
+                    spacing: "30",
                     
-                    label {
-                        font_size: "16",
-                        font_weight: "bold",
-                        "Configuration File Path"
-                    }
-                    
-                    rect {
-                        direction: "horizontal",
-                        spacing: "10",
-                        
-                        Input {
-                            width: "fill",
-                            value: "{config_path}",
-                            onchange: move |e: String| {
-                                config_path.set(e);
-                            },
-                        }
-                        
-                        CustomButton {
-                            text: "Browse",
-                            variant: "secondary",
-                            onpress: move |_| {
-                                // 选择文件对话框（需要实现）
-                                tracing::info!("Open file dialog");
-                            },
-                        }
-                        
-                        CustomButton {
-                            text: "New Config",
-                            variant: "secondary",
-                            onpress: move |_| {
-                                let new_path = format!("{}/tagbox.toml", std::env::current_dir().unwrap().display());
-                                init_config_coroutine.send(new_path);
-                            },
-                        }
-                    }
-                }
-                
-                // 配置内容编辑器
-                rect {
-                    width: "100%",
-                    direction: "column",
-                    spacing: "10",
-                    
-                    label {
-                        font_size: "16",
-                        font_weight: "bold",
-                        "Configuration Content"
-                    }
-                    
-                    rect {
-                        width: "100%",
-                        height: "400",
-                        background: "rgb(245, 245, 245)",
-                        corner_radius: "4",
-                        padding: "10",
-                        border: "1 solid rgb(220, 220, 220)",
-                        
-                        Input {
+                    // 消息显示区域
+                    if let Some(message) = save_message.read().as_ref() {
+                        rect {
                             width: "100%",
-                            value: "{config_content}",
-                            onchange: move |e: String| {
-                                config_content.set(e);
-                            },
+                            padding: "15",
+                            background: "rgb(240, 255, 240)",
+                            corner_radius: "8",
+                            border: "1 solid rgb(100, 200, 100)",
+                            
+                            label {
+                                color: "rgb(50, 150, 50)",
+                                font_size: "14",
+                                "{message}"
+                            }
                         }
                     }
-                }
-                
-                // 操作按钮
-                rect {
-                    width: "100%",
-                    direction: "horizontal",
-                    spacing: "10",
-                    content: "center end",
                     
-                    CustomButton {
-                            text: "Reset",
-                            variant: "secondary",
-                            onpress: move |_| {
-                                // 重新加载原始内容
-                                error_message.set(None);
-                                save_message.set(None);
-                            },
+                    if let Some(error) = error_message.read().as_ref() {
+                        rect {
+                            width: "100%",
+                            padding: "15",
+                            background: "rgb(255, 240, 240)",
+                            corner_radius: "8",
+                            border: "1 solid rgb(200, 100, 100)",
+                            
+                            label {
+                                color: "rgb(200, 50, 50)",
+                                font_size: "14",
+                                "{error}"
+                            }
+                        }
                     }
                     
-                    CustomButton {
-                        text: if is_loading() { "Saving..." } else { "Save Config" },
-                        variant: "primary",
-                        disabled: is_loading(),
-                        onpress: move |_| {
-                            save_config_coroutine.send(());
-                        },
-                    }
-                }
-                
-                // 数据库管理
-                rect {
-                    width: "100%",
-                    direction: "column",
-                    spacing: "10",
-                    margin: "20 0 0 0",
-                    
-                    label {
-                        font_size: "18",
-                        font_weight: "bold",
-                        "Database Management"
-                    }
-                    
+                    // 配置文件选择区域
                     rect {
-                        direction: "horizontal",
-                        spacing: "10",
+                        width: "100%",
+                        background: "white",
+                        corner_radius: "8",
+                        padding: "30",
+                        shadow: "0 2 8 0 rgb(220, 220, 220)",
+                        direction: "column",
+                        spacing: "20",
                         
-                        CustomButton {
-                            text: "Rebuild Search Index",
-                            variant: "secondary",
-                            onpress: move |_| {
-                                tracing::info!("Rebuild search index");
-                            },
+                        label {
+                            font_size: "18",
+                            font_weight: "bold",
+                            color: "rgb(50, 50, 50)",
+                            "Configuration File"
                         }
                         
-                        CustomButton {
-                            text: "Export Database",
-                            variant: "secondary",
-                            onpress: move |_| {
-                                tracing::info!("Export database");
-                            },
+                        rect {
+                            direction: "horizontal",
+                            spacing: "15",
+                            cross_align: "center",
+                            
+                            rect {
+                                width: "fill",
+                                height: "40",
+                                background: "rgb(245, 245, 245)",
+                                corner_radius: "6",
+                                padding: "0 15",
+                                
+                                Input {
+                                    width: "100%",
+                                    value: "{config_path}",
+                                    onchange: move |e: String| {
+                                        config_path.set(e);
+                                    },
+                                }
+                            }
+                            
+                            CustomButton {
+                                text: "Browse",
+                                variant: "secondary",
+                                onpress: move |_| {
+                                    file_picker_coroutine.send(());
+                                },
+                            }
+                            
+                            CustomButton {
+                                text: "New",
+                                variant: "secondary",
+                                onpress: move |_| {
+                                    let new_path = format!("{}/tagbox.toml", 
+                                        std::env::current_dir().unwrap().display());
+                                    init_config_coroutine.send(new_path);
+                                },
+                            }
+                        }
+                    }
+                    
+                    // 配置内容编辑区域
+                    rect {
+                        width: "100%",
+                        background: "white",
+                        corner_radius: "8",
+                        padding: "30",
+                        shadow: "0 2 8 0 rgb(220, 220, 220)",
+                        direction: "column",
+                        spacing: "20",
+                        
+                        label {
+                            font_size: "18",
+                            font_weight: "bold",
+                            color: "rgb(50, 50, 50)",
+                            "Configuration Content"
                         }
                         
-                        CustomButton {
-                            text: "Backup Database",
-                            variant: "secondary",
-                            onpress: move |_| {
-                                tracing::info!("Backup database");
-                            },
+                        rect {
+                            width: "100%",
+                            height: "400",
+                            background: "rgb(245, 245, 245)",
+                            corner_radius: "6",
+                            padding: "15",
+                            border: "1 solid rgb(220, 220, 220)",
+                            
+                            ScrollView {
+                                Input {
+                                    width: "100%",
+                                    value: "{config_content}",
+                                    onchange: move |e: String| {
+                                        config_content.set(e);
+                                    },
+                                }
+                            }
+                        }
+                        
+                        // 操作按钮
+                        rect {
+                            width: "100%",
+                            direction: "horizontal",
+                            spacing: "15",
+                            content: "center end",
+                            
+                            CustomButton {
+                                text: "Reset",
+                                variant: "secondary",
+                                onpress: move |_| {
+                                    // 重新加载文件
+                                    let path = config_path.read().clone();
+                                    load_config_coroutine.send(path);
+                                },
+                            }
+                            
+                            CustomButton {
+                                text: if is_loading() { "Saving..." } else { "Save" },
+                                variant: "primary",
+                                disabled: is_loading(),
+                                onpress: move |_| {
+                                    save_config_coroutine.send(());
+                                },
+                            }
+                        }
+                    }
+                    
+                    // 数据库管理区域
+                    rect {
+                        width: "100%",
+                        background: "white",
+                        corner_radius: "8",
+                        padding: "30",
+                        shadow: "0 2 8 0 rgb(220, 220, 220)",
+                        direction: "column",
+                        spacing: "20",
+                        
+                        label {
+                            font_size: "18",
+                            font_weight: "bold",
+                            color: "rgb(50, 50, 50)",
+                            "Database Management"
+                        }
+                        
+                        rect {
+                            direction: "horizontal",
+                            spacing: "15",
+                            
+                            CustomButton {
+                                text: "Rebuild Index",
+                                variant: "secondary",
+                                onpress: move |_| {
+                                    tracing::info!("Rebuild search index");
+                                    // TODO: 实现索引重建
+                                },
+                            }
+                            
+                            CustomButton {
+                                text: "Export Data",
+                                variant: "secondary",
+                                onpress: move |_| {
+                                    tracing::info!("Export database");
+                                    // TODO: 实现数据导出
+                                },
+                            }
+                            
+                            CustomButton {
+                                text: "Backup",
+                                variant: "secondary",
+                                onpress: move |_| {
+                                    tracing::info!("Backup database");
+                                    // TODO: 实现数据库备份
+                                },
+                            }
                         }
                     }
                 }
