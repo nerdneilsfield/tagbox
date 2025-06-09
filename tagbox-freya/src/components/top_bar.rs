@@ -1,9 +1,9 @@
 use freya::prelude::*;
-use crate::components::{SearchInput, AdvancedSearchModal, CustomButton};
+use crate::components::{SearchInput, CustomButton};
 use crate::router::{Route, use_route};
 
 pub fn TopBar() -> Element {
-    let mut show_advanced_search = use_signal(|| false);
+    let mut show_advanced_search = use_context::<Signal<bool>>();
     let mut route = use_route();
     
     rsx! {
@@ -64,13 +64,6 @@ pub fn TopBar() -> Element {
                         route.set(Route::Settings);
                     },
                 }
-            }
-        }
-        
-        // 高级搜索模态框
-        if show_advanced_search() {
-            AdvancedSearchModal {
-                onclose: move |_| show_advanced_search.set(false)
             }
         }
     }

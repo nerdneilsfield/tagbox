@@ -2,6 +2,7 @@ use freya::prelude::*;
 use crate::state::AppState;
 use crate::router::Route;
 use crate::utils::clipboard::copy_to_clipboard;
+use crate::components::CustomButton;
 
 pub fn FilePreview() -> Element {
     let app_state = use_context::<Signal<Option<AppState>>>();
@@ -194,40 +195,40 @@ pub fn FilePreview() -> Element {
                         spacing: "10",
                         margin: "20 0 0 0",
                         
-                        Button {
+                        CustomButton {
+                            text: "Open File",
+                            variant: "primary",
                             onpress: move |_| {
                                 // TODO: 打开文件
                                 tracing::info!("Open file: {}", file_path_open);
                             },
-                            
-                            label { "Open File" }
                         }
                         
-                        Button {
+                        CustomButton {
+                            text: "Edit",
+                            variant: "secondary",
                             onpress: move |_| {
                                 route.set(Route::Edit(file_id.clone()));
                             },
-                            
-                            label { "Edit" }
                         }
                         
-                        Button {
+                        CustomButton {
+                            text: "CD",
+                            variant: "secondary",
                             onpress: move |_| {
                                 // TODO: 复制文件夹路径
                                 tracing::info!("CD to: {}", file_path3.clone());
                             },
-                            
-                            label { "CD" }
                         }
                         
-                        Button {
+                        CustomButton {
+                            text: "Copy Path",
+                            variant: "secondary",
                             onpress: move |_| {
                                 if let Err(e) = copy_to_clipboard(&file_path4) {
                                     tracing::error!("Failed to copy: {}", e);
                                 }
                             },
-                            
-                            label { "Copy Path" }
                         }
                     }
                 }

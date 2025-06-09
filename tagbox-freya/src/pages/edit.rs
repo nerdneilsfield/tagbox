@@ -1,6 +1,6 @@
 use freya::prelude::*;
 use crate::state::{AppState, FileEntry};
-use crate::components::ConfirmDialog;
+use crate::components::{ConfirmDialog, CustomButton};
 use crate::router::{Route, use_route};
 use futures::{StreamExt, channel::mpsc::UnboundedReceiver};
 use tagbox_core::types::ImportMetadata;
@@ -197,12 +197,12 @@ pub fn EditPage(file_id: String) -> Element {
                             }
                             
                             // 返回按钮
-                            Button {
+                            CustomButton {
+                                text: "← Back",
+                                variant: "secondary",
                                 onpress: move |_| {
                                     route.set(Route::Main);
                                 },
-                                
-                                label { "← Back" }
                             }
                         }
                         
@@ -378,15 +378,17 @@ pub fn EditPage(file_id: String) -> Element {
                             spacing: "10",
                             margin: "20 0 0 0",
                             
-                            Button {
+                            CustomButton {
+                                text: if is_extracting() { "Extracting..." } else { "Re-extract Metadata" },
+                                variant: "secondary",
                                 onpress: move |_| {
                                     extract_metadata_coroutine.send(());
                                 },
-                                
-                                label { if is_extracting() { "Extracting..." } else { "Re-extract Metadata" } }
                             }
                             
-                            Button {
+                            CustomButton {
+                                text: "Reset to Original",
+                                variant: "secondary",
                                 onpress: move |_| {
                                     // 重置所有字段到原始值
                                     title.set(original_file.title.clone());
@@ -403,36 +405,34 @@ pub fn EditPage(file_id: String) -> Element {
                                     
                                     tracing::info!("Reset to original values");
                                 },
-                                
-                                label { "Reset to Original" }
                             }
                             
                             rect { width: "flex" }
                             
-                            Button {
+                            CustomButton {
+                                text: if is_deleting() { "Deleting..." } else { "Delete" },
+                                variant: "danger",
                                 onpress: move |_| {
                                     show_delete_dialog.set(true);
                                 },
-                                
-                                label { if is_deleting() { "Deleting..." } else { "Delete" } }
                             }
                             
-                            Button {
+                            CustomButton {
+                                text: "Cancel",
+                                variant: "secondary",
                                 onpress: move |_| {
                                     route.set(Route::Main);
                                 },
-                                
-                                label { "Cancel" }
                             }
                             
-                            Button {
+                            CustomButton {
+                                text: if is_saving() { "Saving..." } else { "Save" },
+                                variant: "primary",
                                 onpress: move |_| {
                                     if !is_saving() {
                                         save_file_coroutine.send(());
                                     }
                                 },
-                                
-                                label { if is_saving() { "Saving..." } else { "Save" } }
                             }
                         }
                     }
@@ -585,13 +585,13 @@ fn LinkedFilesSection(file_id: String) -> Element {
                 }
             }
             
-            Button {
-                onclick: move |_| {
+            CustomButton {
+                text: "Add Link",
+                variant: "secondary",
+                onpress: move |_| {
                     // TODO: 添加关联文件
                     tracing::info!("Add linked file");
                 },
-                
-                label { "Add Link" }
             }
         }
     }

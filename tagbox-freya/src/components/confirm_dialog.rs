@@ -1,4 +1,5 @@
 use freya::prelude::*;
+use crate::components::CustomButton;
 
 /// 确认对话框组件
 /// 用于在执行危险操作（如删除）前要求用户确认
@@ -26,7 +27,7 @@ pub fn ConfirmDialog(
             width: "100%",
             height: "100%",
             position: "absolute",
-            background: "rgba(0, 0, 0, 0.5)",
+            background: "rgb(0, 0, 0)",
             onclick: move |_| {
                 // 点击背景关闭对话框
                 is_open.set(false);
@@ -39,7 +40,7 @@ pub fn ConfirmDialog(
                 width: "400",
                 background: "white",
                 corner_radius: "8",
-                shadow: "0 4 16 rgba(0, 0, 0, 0.2)",
+                shadow: "0 4 16 0 rgb(200, 200, 200)",
                 padding: "24",
                 // 居中显示
                 position_top: "50%",
@@ -80,13 +81,13 @@ pub fn ConfirmDialog(
                         margin: "20 0 0 0",
                         
                         // 取消按钮
-                        Button {
+                        CustomButton {
+                            text: "取消",
+                            variant: "secondary",
                             onpress: move |_| {
                                 is_open.set(false);
                                 on_cancel.call(());
                             },
-                            
-                            label { "取消" }
                         }
                         
                         // 确认按钮（危险操作，使用红色）

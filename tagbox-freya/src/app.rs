@@ -1,7 +1,7 @@
 use freya::prelude::*;
 use futures::channel::mpsc::UnboundedReceiver;
 use crate::router::{Router, Route, use_route};
-use crate::components::{TopBar, CategoryTree, FilePreview, ToastContainer, Breadcrumb, StatusBar, CustomButton};
+use crate::components::{TopBar, CategoryTree, FilePreview, ToastContainer, Breadcrumb, StatusBar, CustomButton, AdvancedSearchModal};
 use crate::state::{AppState, FileEntry};
 
 pub fn App() -> Element {
@@ -48,14 +48,14 @@ pub fn App() -> Element {
                         "{error}"
                     }
                     
-                    Button {
+                    CustomButton {
+                        text: "重试",
+                        variant: "primary",
                         onpress: move |_| {
                             // 重试
                             init_error.set(None);
                             app_state.set(None);
                         },
-                        
-                        label { "重试" }
                     }
                 }
             }
@@ -110,6 +110,10 @@ pub fn App() -> Element {
 
 pub fn MainView() -> Element {
     let app_state = use_context::<Signal<Option<AppState>>>();
+    let mut show_advanced_search = use_signal(|| false);
+    
+    // 提供高级搜索状态
+    use_context_provider(|| show_advanced_search);
     
     rsx! {
         rect {
@@ -180,6 +184,13 @@ pub fn MainView() -> Element {
             
             // 状态栏
             StatusBar {}
+        }
+        
+        // 高级搜索模态框 - 在最后渲染以确保在顶层
+        if show_advanced_search() {
+            AdvancedSearchModal {
+                onclose: move |_| show_advanced_search.set(false)
+            }
         }
     }
 }

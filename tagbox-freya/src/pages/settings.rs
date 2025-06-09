@@ -1,6 +1,7 @@
 use freya::prelude::*;
 use crate::state::AppState;
 use crate::router::{Route, use_route};
+use crate::components::CustomButton;
 use std::path::PathBuf;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
@@ -144,12 +145,12 @@ language = "zh"
                         "Settings"
                     }
                     
-                    Button {
+                    CustomButton {
+                        text: "← Back",
+                        variant: "secondary",
                         onpress: move |_| {
                             route.set(Route::Main);
                         },
-                        
-                        label { "← Back" }
                     }
                 }
                 
@@ -207,22 +208,22 @@ language = "zh"
                             },
                         }
                         
-                        Button {
+                        CustomButton {
+                            text: "Browse",
+                            variant: "secondary",
                             onpress: move |_| {
                                 // 选择文件对话框（需要实现）
                                 tracing::info!("Open file dialog");
                             },
-                            
-                            label { "Browse" }
                         }
                         
-                        Button {
+                        CustomButton {
+                            text: "New Config",
+                            variant: "secondary",
                             onpress: move |_| {
                                 let new_path = format!("{}/tagbox.toml", std::env::current_dir().unwrap().display());
                                 init_config_coroutine.send(new_path);
                             },
-                            
-                            label { "New Config" }
                         }
                     }
                 }
@@ -264,22 +265,23 @@ language = "zh"
                     spacing: "10",
                     content: "center end",
                     
-                    Button {
-                        onpress: move |_| {
-                            // 重新加载原始内容
-                            error_message.set(None);
-                            save_message.set(None);
-                        },
-                        
-                        label { "Reset" }
+                    CustomButton {
+                            text: "Reset",
+                            variant: "secondary",
+                            onpress: move |_| {
+                                // 重新加载原始内容
+                                error_message.set(None);
+                                save_message.set(None);
+                            },
                     }
                     
-                    Button {
+                    CustomButton {
+                        text: if is_loading() { "Saving..." } else { "Save Config" },
+                        variant: "primary",
+                        disabled: is_loading(),
                         onpress: move |_| {
                             save_config_coroutine.send(());
                         },
-                        
-                        label { if is_loading() { "Saving..." } else { "Save Config" } }
                     }
                 }
                 
@@ -300,28 +302,28 @@ language = "zh"
                         direction: "horizontal",
                         spacing: "10",
                         
-                        Button {
+                        CustomButton {
+                            text: "Rebuild Search Index",
+                            variant: "secondary",
                             onpress: move |_| {
                                 tracing::info!("Rebuild search index");
                             },
-                            
-                            label { "Rebuild Search Index" }
                         }
                         
-                        Button {
+                        CustomButton {
+                            text: "Export Database",
+                            variant: "secondary",
                             onpress: move |_| {
                                 tracing::info!("Export database");
                             },
-                            
-                            label { "Export Database" }
                         }
                         
-                        Button {
+                        CustomButton {
+                            text: "Backup Database",
+                            variant: "secondary",
                             onpress: move |_| {
                                 tracing::info!("Backup database");
                             },
-                            
-                            label { "Backup Database" }
                         }
                     }
                 }

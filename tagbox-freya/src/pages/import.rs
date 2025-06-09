@@ -229,13 +229,13 @@ pub fn ImportPage() -> Element {
                             },
                         }
                         
-                        Button {
+                        CustomButton {
+                            text: "Download",
+                            variant: "secondary",
                             onpress: move |_| {
                                 // TODO: 下载文件
                                 tracing::info!("Download from URL: {}", download_url.read());
                             },
-                            
-                            label { "Download" }
                         }
                     }
                 }

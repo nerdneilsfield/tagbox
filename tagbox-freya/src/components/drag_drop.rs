@@ -1,5 +1,6 @@
 use freya::prelude::*;
 use std::path::PathBuf;
+use crate::components::CustomButton;
 
 #[component]
 pub fn DragDropArea(
@@ -76,13 +77,13 @@ pub fn FileSelectButton(
     onfile: EventHandler<PathBuf>,
 ) -> Element {
     rsx! {
-        Button {
+        CustomButton {
+            text: "Browse Files",
+            variant: "secondary",
             onpress: move |_| {
                 // TODO: 打开文件选择对话框
                 tracing::info!("Select file");
             },
-            
-            label { "Browse Files" }
         }
     }
 }

@@ -1,4 +1,5 @@
 use freya::prelude::*;
+use crate::components::CustomButton;
 
 #[component]
 pub fn AdvancedSearchModal(onclose: EventHandler<()>) -> Element {
@@ -21,15 +22,23 @@ pub fn AdvancedSearchModal(onclose: EventHandler<()>) -> Element {
     };
     
     rsx! {
-        // 模态框背景
+        // 模态框背景 - 使用带透明度的容器
         rect {
             position: "absolute",
             width: "100%",
             height: "100%",
-            background: "rgb(0, 0, 0, 50)",
             main_align: "center",
             cross_align: "center",
-            onclick: move |_| onclose.call(()),
+            
+            // 背景层
+            rect {
+                position: "absolute",
+                width: "100%",
+                height: "100%",
+                background: "rgb(50, 50, 50)",
+                opacity: "0.8",
+                onclick: move |_| onclose.call(()),
+            }
             
             // 模态框内容
             rect {
@@ -37,7 +46,7 @@ pub fn AdvancedSearchModal(onclose: EventHandler<()>) -> Element {
                 max_height: "80%",
                 background: "white",
                 corner_radius: "8",
-                shadow: "0 4 20 0 rgb(0, 0, 0, 30)",
+                shadow: "0 4 20 0 rgb(200, 200, 200)",
                 padding: "30",
                 onclick: move |e| e.stop_propagation(),
                 
@@ -203,16 +212,16 @@ pub fn AdvancedSearchModal(onclose: EventHandler<()>) -> Element {
                             main_align: "end",
                             margin: "20 0 0 0",
                             
-                            Button {
+                            CustomButton {
+                                text: "Cancel",
+                                variant: "secondary",
                                 onpress: move |_| onclose.call(()),
-                                
-                                label { "Cancel" }
                             }
                             
-                            Button {
+                            CustomButton {
+                                text: "Search",
+                                variant: "primary",
                                 onpress: move |_| onsearch(),
-                                
-                                label { "Search" }
                             }
                         }
                     }
