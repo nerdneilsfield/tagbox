@@ -37,7 +37,7 @@ pub fn TopBar() -> Element {
                 direction: "horizontal",
                 spacing: "10",
                 content: "center",
-                max_width: "600",
+                padding: "0 20",
                 
                 SearchInput {}
                 
@@ -48,10 +48,12 @@ pub fn TopBar() -> Element {
                 }
             }
             
-            // 导入按钮
+            // 右侧按钮组
             rect {
                 width: "auto",
                 height: "100%",
+                direction: "horizontal",
+                spacing: "10",
                 content: "center",
                 margin: "0 0 0 20",
                 
@@ -61,6 +63,14 @@ pub fn TopBar() -> Element {
                     },
                     
                     label { "Import File" }
+                }
+                
+                Button {
+                    onpress: move |_| {
+                        route.set(Route::Settings);
+                    },
+                    
+                    label { "⚙ Settings" }
                 }
             }
         }

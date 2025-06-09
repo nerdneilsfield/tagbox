@@ -16,6 +16,10 @@ pub fn Breadcrumb() -> Element {
             ("主页", Route::Main),
             ("编辑文件", Route::Edit(file_id.clone())),
         ],
+        Route::Settings => vec![
+            ("主页", Route::Main),
+            ("设置", Route::Settings),
+        ],
     };
     
     rsx! {

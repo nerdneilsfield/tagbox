@@ -12,6 +12,7 @@ use tokio::sync::Mutex;
 /// TagBox 服务层，封装所有 tagbox-core 的 API 调用
 pub struct TagBoxService {
     config: AppConfig,
+    config_path: Option<PathBuf>,
     db: Arc<Mutex<Database>>,
 }
 
@@ -49,8 +50,11 @@ impl TagBoxService {
         // 创建数据库连接
         let db = Database::new(&config.database.path).await?;
         
+        let service_config_path = config_path.map(|p| PathBuf::from(p));
+        
         Ok(Self {
             config,
+            config_path: service_config_path,
             db: Arc::new(Mutex::new(db)),
         })
     }
@@ -58,6 +62,19 @@ impl TagBoxService {
     /// 获取配置
     pub fn config(&self) -> &AppConfig {
         &self.config
+    }
+    
+    /// 获取配置文件路径
+    pub fn config_path(&self) -> Option<PathBuf> {
+        self.config_path.clone()
+    }
+    
+    /// 重新加载配置
+    pub async fn reload_config(&mut self) -> Result<()> {
+        if let Some(path) = &self.config_path {
+            self.config = AppConfig::from_file(path).await?;
+        }
+        Ok(())
     }
 
     /// 搜索文件 - 参考 commands/search.rs

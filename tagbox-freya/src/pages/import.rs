@@ -1,6 +1,7 @@
 use freya::prelude::*;
 use crate::components::{DragDropArea, SelectedFileDisplay};
 use crate::state::AppState;
+use crate::router::{Route, use_route};
 use std::path::PathBuf;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
@@ -133,11 +134,27 @@ pub fn ImportPage() -> Element {
                 direction: "column",
                 spacing: "30",
                 
-                // 页面标题
-                label {
-                    font_size: "28",
-                    font_weight: "bold",
-                    "Import New File"
+                // 页面标题和返回按钮
+                rect {
+                    width: "100%",
+                    direction: "horizontal",
+                    content: "center space",
+                    margin: "0 0 20 0",
+                    
+                    label {
+                        font_size: "28",
+                        font_weight: "bold",
+                        "Import New File"
+                    }
+                    
+                    Button {
+                        onpress: move |_| {
+                            let mut route = use_route();
+                            route.set(Route::Main);
+                        },
+                        
+                        label { "← Back" }
+                    }
                 }
                 
                 // 错误消息显示

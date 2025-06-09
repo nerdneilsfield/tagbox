@@ -1,7 +1,7 @@
 use freya::prelude::*;
 use futures::channel::mpsc::UnboundedReceiver;
 use crate::router::{Router, Route, use_route};
-use crate::components::{TopBar, CategoryTree, FilePreview, ToastContainer, Breadcrumb};
+use crate::components::{TopBar, CategoryTree, FilePreview, ToastContainer, Breadcrumb, StatusBar};
 use crate::state::{AppState, FileEntry};
 
 pub fn App() -> Element {
@@ -177,6 +177,9 @@ pub fn MainView() -> Element {
                     FilePreview {}
                 }
             }
+            
+            // 状态栏
+            StatusBar {}
         }
     }
 }

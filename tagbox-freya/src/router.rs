@@ -1,5 +1,5 @@
 use freya::prelude::*;
-use crate::pages::{ImportPage, EditPage};
+use crate::pages::{ImportPage, EditPage, SettingsPage};
 use crate::app::MainView;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -7,6 +7,7 @@ pub enum Route {
     Main,
     Import,
     Edit(String),
+    Settings,
 }
 
 pub fn Router() -> Element {
@@ -17,6 +18,7 @@ pub fn Router() -> Element {
         Route::Main => rsx! { MainView {} },
         Route::Import => rsx! { ImportPage {} },
         Route::Edit(file_id) => rsx! { EditPage { file_id } },
+        Route::Settings => rsx! { SettingsPage {} },
     }
 }
 
