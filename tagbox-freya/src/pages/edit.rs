@@ -32,6 +32,9 @@ pub fn EditPage(file_id: String) -> Element {
             let mut category1 = use_signal(|| file.category.as_ref().map(|c| c.level1.clone()).unwrap_or_default());
             let mut category2 = use_signal(|| file.category.as_ref().and_then(|c| c.level2.clone()).unwrap_or_default());
             let mut category3 = use_signal(|| file.category.as_ref().and_then(|c| c.level3.clone()).unwrap_or_default());
+            let year = use_signal(|| String::new());  // FileEntry 没有年份字段
+            let publisher = use_signal(|| String::new());  // FileEntry 没有出版商字段
+            let source = use_signal(|| String::new());  // FileEntry 没有来源字段
             let mut is_saving = use_signal(|| false);
             let mut save_error = use_signal(|| None::<String>);
             let mut show_delete_dialog = use_signal(|| false);
@@ -57,9 +60,9 @@ pub fn EditPage(file_id: String) -> Element {
                                 .map(|s| s.trim().to_string())
                                 .filter(|s| !s.is_empty())
                                 .collect(),
-                            year: None,  // FileEntry 不包含年份字段
-                            publisher: None,  // FileEntry 不包含出版商字段
-                            source: None,  // FileEntry 不包含来源字段
+                            year: year.read().parse::<i32>().ok(),
+                            publisher: if publisher.read().is_empty() { None } else { Some(publisher.read().clone()) },
+                            source: if source.read().is_empty() { None } else { Some(source.read().clone()) },
                             category1: category1.read().clone(),
                             category2: if category2.read().is_empty() { None } else { Some(category2.read().clone()) },
                             category3: if category3.read().is_empty() { None } else { Some(category3.read().clone()) },
@@ -304,6 +307,36 @@ pub fn EditPage(file_id: String) -> Element {
                             EditField {
                                 label: "Tags",
                                 value: tags,
+                            }
+                            
+                            // 年份、出版商、来源 - 横向排列
+                            rect {
+                                direction: "horizontal",
+                                spacing: "20",
+                                
+                                rect {
+                                    width: "33%",
+                                    EditField {
+                                        label: "Year",
+                                        value: year,
+                                    }
+                                }
+                                
+                                rect {
+                                    width: "33%",
+                                    EditField {
+                                        label: "Publisher",
+                                        value: publisher,
+                                    }
+                                }
+                                
+                                rect {
+                                    width: "33%",
+                                    EditField {
+                                        label: "Source",
+                                        value: source,
+                                    }
+                                }
                             }
                             
                             // 摘要

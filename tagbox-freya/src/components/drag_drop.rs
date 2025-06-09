@@ -1,6 +1,7 @@
 use freya::prelude::*;
 use std::path::PathBuf;
 use crate::components::CustomButton;
+use futures::StreamExt;
 
 #[component]
 pub fn DragDropArea(
@@ -76,13 +77,37 @@ pub fn DragDropArea(
 pub fn FileSelectButton(
     onfile: EventHandler<PathBuf>,
 ) -> Element {
+    // 创建一个协程来处理文件选择
+    let file_select_coroutine = use_coroutine(move |mut rx: futures::channel::mpsc::UnboundedReceiver<()>| {
+        let onfile = onfile.clone();
+        async move {
+            while let Some(_) = rx.next().await {
+                if let Some(files) = rfd::AsyncFileDialog::new()
+                    .add_filter("Documents", &["pdf", "epub", "txt", "md", "djvu", "mobi", "cbz"])
+                    .add_filter("PDF files", &["pdf"])
+                    .add_filter("EPUB files", &["epub"])
+                    .add_filter("Text files", &["txt", "md"])
+                    .add_filter("All files", &["*"])
+                    .set_directory(dirs::document_dir().unwrap_or_default())
+                    .pick_files()
+                    .await
+                {
+                    for file in files {
+                        let path = file.path().to_path_buf();
+                        tracing::info!("Selected file: {}", path.display());
+                        onfile.call(path);
+                    }
+                }
+            }
+        }
+    });
+    
     rsx! {
         CustomButton {
             text: "Browse Files",
             variant: "secondary",
             onpress: move |_| {
-                // TODO: 打开文件选择对话框
-                tracing::info!("Select file");
+                file_select_coroutine.send(());
             },
         }
     }

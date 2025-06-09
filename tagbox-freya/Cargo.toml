@@ -24,6 +24,8 @@ futures = "0.3"
 uuid = { version = "1.10", features = ["v4"] }
 open = "5.0"  # 跨平台打开文件/文件夹
 rfd = "0.14"  # 异步文件对话框
+reqwest = { version = "0.12", features = ["json", "stream"] }  # HTTP 客户端
+url = "2.5"  # URL 解析
 
 [dev-dependencies]
 tempfile = "3.10"

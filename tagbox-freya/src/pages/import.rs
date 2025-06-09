@@ -2,6 +2,7 @@ use freya::prelude::*;
 use crate::components::{DragDropArea, SelectedFileDisplay, CustomButton};
 use crate::state::AppState;
 use crate::router::{Route, use_route};
+use crate::utils::download::{download_file_from_url, validate_url};
 use std::path::PathBuf;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
@@ -24,6 +25,28 @@ pub fn ImportPage() -> Element {
     let mut error_message = use_signal(|| None::<String>);
     
     let file_selected = selected_file.read().is_some();
+    
+    // URL 下载协程
+    let download_coroutine = use_coroutine(move |mut rx: UnboundedReceiver<String>| async move {
+        while let Some(url) = rx.next().await {
+            is_loading.set(true);
+            error_message.set(None);
+            
+            match download_file_from_url(&url).await {
+                Ok(path) => {
+                    tracing::info!("Downloaded file to: {}", path.display());
+                    selected_file.set(Some(path));
+                }
+                Err(e) => {
+                    let error_msg = format!("Download failed: {}", e);
+                    tracing::error!("{}", error_msg);
+                    error_message.set(Some(error_msg));
+                }
+            }
+            
+            is_loading.set(false);
+        }
+    });
     
     // 元数据提取协程
     let extract_metadata_coroutine = use_coroutine(move |mut rx: UnboundedReceiver<PathBuf>| async move {
@@ -233,8 +256,20 @@ pub fn ImportPage() -> Element {
                             text: "Download",
                             variant: "secondary",
                             onpress: move |_| {
-                                // TODO: 下载文件
-                                tracing::info!("Download from URL: {}", download_url.read());
+                                let url = download_url.read().clone();
+                                if url.is_empty() {
+                                    return;
+                                }
+                                
+                                // 验证 URL
+                                if let Err(e) = validate_url(&url) {
+                                    tracing::error!("Invalid URL: {}", e);
+                                    // TODO: 显示错误提示
+                                    return;
+                                }
+                                
+                                // 发送 URL 到下载协程
+                                download_coroutine.send(url);
                             },
                         }
                     }

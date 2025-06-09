@@ -2,6 +2,7 @@ use freya::prelude::*;
 use crate::state::AppState;
 use crate::router::Route;
 use crate::utils::clipboard::copy_to_clipboard;
+use crate::utils::file_operations::{open_file_async, reveal_in_folder_async};
 use crate::components::CustomButton;
 
 pub fn FilePreview() -> Element {
@@ -199,8 +200,7 @@ pub fn FilePreview() -> Element {
                             text: "Open File",
                             variant: "primary",
                             onpress: move |_| {
-                                // TODO: 打开文件
-                                tracing::info!("Open file: {}", file_path_open);
+                                open_file_async(file_path_open.clone());
                             },
                         }
                         
@@ -213,11 +213,10 @@ pub fn FilePreview() -> Element {
                         }
                         
                         CustomButton {
-                            text: "CD",
+                            text: "Show in Folder",
                             variant: "secondary",
                             onpress: move |_| {
-                                // TODO: 复制文件夹路径
-                                tracing::info!("CD to: {}", file_path3.clone());
+                                reveal_in_folder_async(file_path3.clone());
                             },
                         }
                         
@@ -225,8 +224,15 @@ pub fn FilePreview() -> Element {
                             text: "Copy Path",
                             variant: "secondary",
                             onpress: move |_| {
-                                if let Err(e) = copy_to_clipboard(&file_path4) {
-                                    tracing::error!("Failed to copy: {}", e);
+                                match copy_to_clipboard(&file_path4) {
+                                    Ok(_) => {
+                                        tracing::info!("Copied path to clipboard: {}", file_path4);
+                                        // TODO: 显示成功提示
+                                    }
+                                    Err(e) => {
+                                        tracing::error!("Failed to copy: {}", e);
+                                        // TODO: 显示错误提示
+                                    }
                                 }
                             },
                         }
