@@ -6,7 +6,7 @@ use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
 
 pub fn SettingsPage() -> Element {
-    let mut app_state = use_context::<Signal<Option<AppState>>>();
+    let app_state = use_context::<Signal<Option<AppState>>>();
     let mut route = use_route();
     
     // 配置相关状态

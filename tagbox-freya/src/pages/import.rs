@@ -1,5 +1,5 @@
 use freya::prelude::*;
-use crate::components::{DragDropArea, SelectedFileDisplay};
+use crate::components::{DragDropArea, SelectedFileDisplay, CustomButton};
 use crate::state::AppState;
 use crate::router::{Route, use_route};
 use std::path::PathBuf;
@@ -147,13 +147,13 @@ pub fn ImportPage() -> Element {
                         "Import New File"
                     }
                     
-                    Button {
+                    CustomButton {
+                        text: "← 返回",
+                        variant: "secondary",
                         onpress: move |_| {
                             let mut route = use_route();
                             route.set(Route::Main);
                         },
-                        
-                        label { "← Back" }
                     }
                 }
                 
@@ -389,34 +389,34 @@ pub fn ImportPage() -> Element {
                             spacing: "10",
                             margin: "20 0 0 0",
                             
-                            Button {
+                            CustomButton {
+                                text: "提取元数据",
+                                variant: "secondary",
                                 onpress: move |_| {
                                     if let Some(path) = selected_file.read().clone() {
                                         extract_metadata_coroutine.send(path);
                                     }
                                 },
-                                
-                                label { "Extract Metadata" }
                             }
                             
-                            Button {
+                            CustomButton {
+                                text: "导入并移动",
+                                variant: "primary",
                                 onpress: move |_| {
                                     if let Some(path) = selected_file.read().clone() {
                                         import_file_coroutine.send((path, true));
                                     }
                                 },
-                                
-                                label { "Import and Move" }
                             }
                             
-                            Button {
+                            CustomButton {
+                                text: "导入并保留原文件",
+                                variant: "primary",
                                 onpress: move |_| {
                                     if let Some(path) = selected_file.read().clone() {
                                         import_file_coroutine.send((path, false));
                                     }
                                 },
-                                
-                                label { "Import and Keep Original" }
                             }
                         }
                     }

@@ -1,76 +1,90 @@
 use freya::prelude::*;
-use crate::components::{SearchInput, AdvancedSearchModal};
-use crate::router::Route;
+use crate::components::{SearchInput, AdvancedSearchModal, CustomButton};
+use crate::router::{Route, use_route};
 
 pub fn TopBar() -> Element {
     let mut show_advanced_search = use_signal(|| false);
-    let mut route = use_context::<Signal<Route>>();
+    let mut route = use_route();
     
     rsx! {
         rect {
             width: "100%",
-            height: "60",
-            background: "white",
-            padding: "10 20",
+            height: "56",
+            background: "rgb(255, 255, 255)",
+            shadow: "0 2 4 0 rgba(0, 0, 0, 0.1)",
             direction: "horizontal",
-            border: "0 0 1 0 solid rgb(230, 230, 230)",
+            padding: "0 16",
+            content: "center start",
+            position: "relative",
             
-            // Logo和标题
+            // Logo区域 - 固定宽度
             rect {
-                width: "auto",
+                width: "150",
                 height: "100%",
-                content: "center",
-                margin: "0 20 0 0",
+                content: "center start",
+                direction: "horizontal",
+                spacing: "12",
                 
                 label {
-                    font_size: "24",
+                    font_size: "20",
                     font_weight: "bold",
-                    color: "rgb(50, 50, 50)",
+                    color: "rgb(30, 30, 30)",
                     "TagBox"
                 }
             }
             
-            // 搜索区域
+            // 搜索区域 - 中间部分
             rect {
-                width: "fill",
+                width: "500",
+                max_width: "500",
                 height: "100%",
                 direction: "horizontal",
-                spacing: "10",
+                spacing: "8",
                 content: "center",
-                padding: "0 20",
+                margin: "0 16",
                 
-                SearchInput {}
-                
-                Button {
-                    onpress: move |_| show_advanced_search.set(true),
+                rect {
+                    width: "400",
+                    height: "36",
                     
-                    label { "Advanced" }
+                    SearchInput {}
+                }
+                
+                CustomButton {
+                    text: "高级搜索",
+                    variant: "secondary",
+                    onpress: move |_| show_advanced_search.set(true),
                 }
             }
             
-            // 右侧按钮组
+            // 占位区域 - 推动按钮到右侧
+            rect {
+                width: "fill",
+                height: "100%",
+            }
+            
+            // 右侧按钮组 - 固定在右侧
             rect {
                 width: "auto",
                 height: "100%",
                 direction: "horizontal",
-                spacing: "10",
-                content: "center",
-                margin: "0 0 0 20",
+                spacing: "8",
+                content: "center end",
                 
-                Button {
+                CustomButton {
+                    text: "导入文件",
+                    variant: "primary",
                     onpress: move |_| {
                         route.set(Route::Import);
                     },
-                    
-                    label { "Import File" }
                 }
                 
-                Button {
+                CustomButton {
+                    text: "⚙ 设置",
+                    variant: "secondary",
                     onpress: move |_| {
                         route.set(Route::Settings);
                     },
-                    
-                    label { "⚙ Settings" }
                 }
             }
         }

@@ -8,8 +8,10 @@ mod confirm_dialog;
 mod toast;
 mod breadcrumb;
 mod status_bar;
+mod custom_button;
 
 pub use top_bar::TopBar;
+pub use custom_button::{CustomButton, IconButton};
 pub use category_tree::CategoryTree;
 pub use file_preview::FilePreview;
 pub use search_input::SearchInput;

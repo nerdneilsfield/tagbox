@@ -2,6 +2,7 @@ use freya::prelude::*;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
 use crate::state::AppState;
+use crate::components::IconButton;
 
 pub fn SearchInput() -> Element {
     let mut app_state = use_context::<Signal<Option<AppState>>>();
@@ -32,13 +33,14 @@ pub fn SearchInput() -> Element {
     
     rsx! {
         rect {
-            width: "fill",
-            height: "40",
-            background: "rgb(245, 245, 245)",
-            corner_radius: "20",
-            padding: "0 15",
+            width: "100%",
+            height: "100%",
+            background: "rgb(242, 242, 242)",
+            corner_radius: "18",
+            padding: "0 16",
             direction: "horizontal",
-            content: "center",
+            content: "center start",
+            border: "1 solid rgb(230, 230, 230)",
             
             Input {
                 placeholder: "Search (e.g. tag:Rust -tag:旧版)",
@@ -56,28 +58,27 @@ pub fn SearchInput() -> Element {
             }
             
             // 搜索按钮或加载指示器
-            rect {
-                width: "40",
-                height: "40",
-                content: "center",
-                
-                if is_searching() {
+            if is_searching() {
+                rect {
+                    width: "36",
+                    height: "36",
+                    content: "center",
+                    
                     label {
                         font_size: "16",
                         color: "rgb(100, 100, 100)",
                         "..."
                     }
-                } else {
-                    Button {
-                        onpress: move |_| {
-                            let query = input_value.read().clone();
-                            if !query.is_empty() {
-                                search_coroutine.send(query);
-                            }
-                        },
-                        
-                        label { "🔍" }
-                    }
+                }
+            } else {
+                IconButton {
+                    icon: "🔍",
+                    onpress: move |_| {
+                        let query = input_value.read().clone();
+                        if !query.is_empty() {
+                            search_coroutine.send(query);
+                        }
+                    },
                 }
             }
         }

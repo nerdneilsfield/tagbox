@@ -25,12 +25,13 @@ pub fn Breadcrumb() -> Element {
     rsx! {
         rect {
             width: "100%",
-            height: "40",
+            height: "36",
             direction: "horizontal",
             spacing: "8",
-            padding: "10 20",
-            background: "rgb(245, 245, 245)",
+            padding: "0 16",
+            background: "rgb(249, 249, 249)",
             border: "0 0 1 0 solid rgb(230, 230, 230)",
+            content: "center start",
             
             for (i, (name, route)) in breadcrumbs.iter().enumerate() {
                 if i > 0 {

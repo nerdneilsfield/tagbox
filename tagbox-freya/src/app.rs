@@ -1,7 +1,7 @@
 use freya::prelude::*;
 use futures::channel::mpsc::UnboundedReceiver;
 use crate::router::{Router, Route, use_route};
-use crate::components::{TopBar, CategoryTree, FilePreview, ToastContainer, Breadcrumb, StatusBar};
+use crate::components::{TopBar, CategoryTree, FilePreview, ToastContainer, Breadcrumb, StatusBar, CustomButton};
 use crate::state::{AppState, FileEntry};
 
 pub fn App() -> Element {
@@ -116,12 +116,23 @@ pub fn MainView() -> Element {
             width: "100%",
             height: "100%",
             direction: "column",
+            background: "rgb(250, 250, 250)",
             
             // 顶部栏
-            TopBar {}
+            rect {
+                width: "100%",
+                height: "56",
+                
+                TopBar {}
+            }
             
             // 面包屑导航
-            Breadcrumb {}
+            rect {
+                width: "100%",
+                height: "36",
+                
+                Breadcrumb {}
+            }
             
             // 错误消息显示
             if let Some(error) = app_state.read().as_ref().and_then(|s| s.error_message.as_ref()) {
@@ -179,7 +190,12 @@ pub fn MainView() -> Element {
             }
             
             // 状态栏
-            StatusBar {}
+            rect {
+                width: "100%",
+                height: "30",
+                
+                StatusBar {}
+            }
         }
     }
 }
@@ -311,14 +327,13 @@ fn FileCard(file: FileEntry) -> Element {
                     }
                     
                     // 编辑按钮
-                    Button {
+                    CustomButton {
+                        text: "编辑",
+                        variant: "secondary",
                         onpress: move |_| {
-                            // 不需要 stop_propagation，Button 会处理
                             let file_id = file.id.clone();
                             route.set(Route::Edit(file_id));
                         },
-                        
-                        label { "编辑" }
                     }
                 }
             }
