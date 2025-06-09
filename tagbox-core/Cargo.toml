@@ -34,7 +34,7 @@ pdf-extract = "0.7"
 imageinfo = "0.7"
 num_cpus = "1.16"
 futures = "0.3"
-sea-query = "0.32.5"
+sea-query = "0.32.6"
 
 # Signal-FTS5 扩展依赖
 signal-tokenizer = { path = "../signal-fts5", features = ["extension"] }
