@@ -47,8 +47,8 @@ pub fn CustomButton(
             content: "center",
             min_width: "80",
             height: "36",
-            border: "1 solid rgba(0, 0, 0, 0.1)",
-            shadow: "0 1 3 0 rgba(0, 0, 0, 0.1)",
+            border: "1 solid rgb(220, 220, 220)",
+            shadow: "0 1 3 0 rgb(220, 220, 220)",
             
             onmouseenter: move |_| {
                 if !disabled {
@@ -97,7 +97,7 @@ pub fn IconButton(
             height: "36",
             padding: "8",
             background: if is_hovered() {
-                "rgba(0, 0, 0, 0.05)"
+                "rgb(240, 240, 240)"
             } else {
                 "transparent"
             },

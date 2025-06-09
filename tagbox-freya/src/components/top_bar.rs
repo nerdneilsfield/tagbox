@@ -11,37 +11,24 @@ pub fn TopBar() -> Element {
             width: "100%",
             height: "56",
             background: "rgb(255, 255, 255)",
-            shadow: "0 2 4 0 rgba(0, 0, 0, 0.1)",
+            shadow: "0 2 4 0 rgb(200, 200, 200)",
             direction: "horizontal",
             padding: "0 16",
-            content: "center start",
-            position: "relative",
+            content: "center space",
             
-            // Logo区域 - 固定宽度
-            rect {
-                width: "150",
-                height: "100%",
-                content: "center start",
-                direction: "horizontal",
-                spacing: "12",
-                
-                label {
-                    font_size: "20",
-                    font_weight: "bold",
-                    color: "rgb(30, 30, 30)",
-                    "TagBox"
-                }
+            // Logo
+            label {
+                font_size: "20",
+                font_weight: "bold",
+                color: "rgb(30, 30, 30)",
+                "TagBox"
             }
             
-            // 搜索区域 - 中间部分
+            // 搜索区域
             rect {
-                width: "500",
-                max_width: "500",
-                height: "100%",
                 direction: "horizontal",
                 spacing: "8",
                 content: "center",
-                margin: "0 16",
                 
                 rect {
                     width: "400",
@@ -57,19 +44,10 @@ pub fn TopBar() -> Element {
                 }
             }
             
-            // 占位区域 - 推动按钮到右侧
+            // 右侧按钮组
             rect {
-                width: "fill",
-                height: "100%",
-            }
-            
-            // 右侧按钮组 - 固定在右侧
-            rect {
-                width: "auto",
-                height: "100%",
                 direction: "horizontal",
                 spacing: "8",
-                content: "center end",
                 
                 CustomButton {
                     text: "导入文件",

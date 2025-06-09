@@ -119,20 +119,10 @@ pub fn MainView() -> Element {
             background: "rgb(250, 250, 250)",
             
             // 顶部栏
-            rect {
-                width: "100%",
-                height: "56",
-                
-                TopBar {}
-            }
+            TopBar {}
             
             // 面包屑导航
-            rect {
-                width: "100%",
-                height: "36",
-                
-                Breadcrumb {}
-            }
+            Breadcrumb {}
             
             // 错误消息显示
             if let Some(error) = app_state.read().as_ref().and_then(|s| s.error_message.as_ref()) {
@@ -152,7 +142,6 @@ pub fn MainView() -> Element {
             rect {
                 width: "100%",
                 height: "fill",
-                min_height: "0",
                 direction: "horizontal",
                 
                 // 左侧面板 - 分类树
@@ -190,12 +179,7 @@ pub fn MainView() -> Element {
             }
             
             // 状态栏
-            rect {
-                width: "100%",
-                height: "30",
-                
-                StatusBar {}
-            }
+            StatusBar {}
         }
     }
 }
