@@ -82,7 +82,7 @@ jobs:
 
       - name: Upload test artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: nightly-${{ matrix.os }}-${{ matrix.rust }}-results
           path: |
@@ -135,7 +135,7 @@ jobs:
   #         DATABASE_URL="sqlite:.sqlx-data/tagbox.db" cargo bench --all | tee benchmark-results.txt
 
   #     - name: Upload benchmark results
-  #       uses: actions/upload-artifact@v4
+  #       uses: actions/upload-artifact@v5
   #       with:
   #         name: benchmark-results
   #         path: |
@@ -176,7 +176,7 @@ jobs:
           cargo license --json > licenses.json
 
       - name: Upload dependency analysis
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: dependency-analysis
           path: |
@@ -219,7 +219,7 @@ jobs:
           echo "All test artifacts are available in the workflow run." >> nightly-report/README.md
 
       - name: Upload nightly report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: nightly-report
           path: nightly-report/
