@@ -46,7 +46,7 @@ harness = false
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
-rand = "0.8"
+rand = "0.9"
 # 测试文件和临时目录
 tempfile = { workspace = true }
 tokio-test = { workspace = true }
