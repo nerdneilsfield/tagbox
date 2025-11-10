@@ -11,7 +11,7 @@ sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "macros", "mig
 serde = { workspace = true }
 serde_json = { workspace = true }
 clap = { version = "4.0", features = ["derive"] }
-lopdf = "0.32"
+lopdf = "0.34"
 pdf-extract = "0.7"
 tracing = "0.1"
 tracing-subscriber = "0.3"
