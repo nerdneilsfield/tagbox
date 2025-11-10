@@ -32,7 +32,7 @@ epub = "2.1"
 lopdf = { version = "0.30.0", features = ["nom_parser"] }
 pdf-extract = "0.7"
 imageinfo = "0.7"
-num_cpus = "1.16"
+num_cpus = "1.17"
 futures = "0.3"
 sea-query = "0.32.5"
 
