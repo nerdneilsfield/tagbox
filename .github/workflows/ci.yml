@@ -94,7 +94,7 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.9
 
       - name: Cache SQLite database
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .sqlx-data
           key: ${{ runner.os }}-sqlx-${{ hashFiles('**/schema.rs', '**/Cargo.toml') }}
